@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
     // 実際のGPT-4を使用
     console.log('Using real OpenAI GPT-4 API')
     
-    const openai = new (require('openai')).OpenAI({
+    const { OpenAI } = await import('openai')
+    const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     })
     

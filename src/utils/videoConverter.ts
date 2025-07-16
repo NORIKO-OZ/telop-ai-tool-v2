@@ -17,7 +17,10 @@ class VideoConverter {
             // 長い動画の場合は最初の30秒のみ処理
             const maxDuration = Math.min(video.duration, 30);
             
-            const stream = (video as any).captureStream();
+            const stream = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
+            if (!stream) {
+              throw new Error('Unable to capture stream from video');
+            }
             const audioTracks = stream.getAudioTracks();
             
             if (audioTracks.length === 0) {
