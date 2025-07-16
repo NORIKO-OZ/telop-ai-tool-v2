@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         .trim()
 
       // 要点抽出（デモモード）
-      const sentences = cleanText.split(/[。！？]/).filter(s => s.trim().length > 0)
+      const sentences = cleanText.split(/[。！？]/).filter((s: string) => s.trim().length > 0)
       
       // 要約レベルに応じた処理
       let summaryRatio: number
