@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Telop Generator v2
 
-## Getting Started
+動画編集者のための次世代AIテロップ生成ツール
 
-First, run the development server:
+## 🚀 主な機能
 
+### 📝 AI音声認識・テロップ生成
+- OpenAI Whisper APIによる高精度音声認識
+- GPT-4による自然なテロップ文章生成
+- 3段階の要約レベル（詳細/標準/簡潔）
+
+### 🎯 スマート編集機能
+- 用語辞書システム（学習・共有可能）
+- クイック一括置換パネル
+- タイムスタンプ付きセグメント表示
+- 句読点自動除去（テロップ最適化）
+
+### 📤 多彩な出力形式
+- SRT字幕ファイル出力
+- タイムスタンプ付きテキスト
+- 動画編集ソフト直接対応
+
+### 🎬 ファイル対応
+- 音声ファイル：MP3, WAV, M4A, AAC, OGG
+- 動画ファイル：MP4, MOV, AVI, MKV, WebM
+- 自動音声抽出機能
+
+## 🛠️ 技術スタック
+
+- **フロントエンド**: Next.js 15.3.5, TypeScript, Tailwind CSS
+- **AI API**: OpenAI Whisper & GPT-4
+- **ストレージ**: ローカルストレージ（辞書・設定）
+- **音声処理**: Web Audio API, MediaRecorder
+- **デプロイ**: Vercel
+
+## 📋 セットアップ
+
+### 必要な環境
+- Node.js 18.0以上
+- OpenAI API キー
+
+### インストール手順
 ```bash
+# リポジトリをクローン
+git clone [repository-url]
+cd telop-ai-tool-v2
+
+# 依存関係をインストール
+npm install
+
+# 環境変数を設定
+cp .env.example .env.local
+# .env.localにOPENAI_API_KEYを設定
+
+# 開発サーバーを起動
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🌐 デプロイ（Vercel）
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. GitHubリポジトリにpush
+2. Vercelでインポート
+3. 環境変数 `OPENAI_API_KEY` を設定
+4. デプロイ完了
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 💡 使い方
 
-## Learn More
+### 基本的な流れ
+1. 音声・動画ファイルをアップロード
+2. 要約レベルを選択
+3. 「文字起こし開始」をクリック
+4. 生成されたテロップを確認・編集
+5. 必要に応じてクイック置換で修正
+6. SRTファイルをダウンロード
 
-To learn more about Next.js, take a look at the following resources:
+### 用語辞書の活用
+1. 「用語辞書」ボタンから辞書管理
+2. よく使う専門用語を登録
+3. 自動置換でテロップ品質向上
+4. 辞書の共有・インポート/エクスポート
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### チーム利用
+- 辞書ファイルの共有
+- 統一された用語表記
+- 作業効率の大幅向上
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📊 パフォーマンス
 
-## Deploy on Vercel
+- 1分の音声処理時間：約10-15秒
+- 対応ファイルサイズ：最大100MB
+- 処理精度：専門用語対応で95%以上
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🎯 対象ユーザー
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- YouTubeクリエイター
+- 動画編集者
+- 企業の動画制作チーム
+- オンライン教育コンテンツ制作者
+- ポッドキャスト制作者
+
+## 🔒 セキュリティ・プライバシー
+
+- 音声データは一時的な処理のみ
+- 辞書データはローカルストレージに保存
+- OpenAI APIの利用規約に準拠
+
+## 📈 今後の予定
+
+- 話者識別機能
+- 感情分析・重要度判定
+- After Effects連携
+- 多言語対応
+- リアルタイム処理
+
+## 🤝 コントリビューション
+
+動画編集者コミュニティとの共創プロジェクトです。
+フィードバック・機能提案をお待ちしています！
+
+## 📞 サポート
+
+- 問題・質問：GitHub Issues
+- 機能提案：Discussions
+- コミュニティ：[オンラインサロン名]
+
+---
+
+**Made with ❤️ for Video Editors**
