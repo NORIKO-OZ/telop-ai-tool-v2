@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
       }
       
       const keyPoints = sentences
-        .filter(sentence => sentence.length > 5) // 短すぎる文は除外
-        .map(sentence => sentence.trim())
+        .filter((sentence: string) => sentence.length > 5) // 短すぎる文は除外
+        .map((sentence: string) => sentence.trim())
         .slice(0, Math.ceil(sentences.length * summaryRatio))
-        .map(sentence => sentence.substring(0, maxLength))
-        .map(sentence => sentence.replace(/[、。]+$/, '')) // 末尾の句読点を除去
+        .map((sentence: string) => sentence.substring(0, maxLength))
+        .map((sentence: string) => sentence.replace(/[、。]+$/, '')) // 末尾の句読点を除去
 
       // タイムスタンプ付きテキストを生成（デモモード）
       if (segments && segments.length > 0 && keyPoints.length > 0) {
