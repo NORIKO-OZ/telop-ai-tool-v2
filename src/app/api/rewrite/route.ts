@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
         const segmentPerPoint = Math.ceil(segments.length / keyPoints.length)
         
-        cleanText = keyPoints.map((point, index) => {
+        cleanText = keyPoints.map((point: string, index: number) => {
           const segmentIndex = index * segmentPerPoint
           if (segmentIndex < segments.length) {
             const segment = segments[segmentIndex]
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       `元のテキスト: ${text}
 
 タイムスタンプ情報:
-${segments.map((seg, i) => `${i + 1}. [${Math.floor(seg.start / 60)}:${(seg.start % 60).toFixed(1).padStart(4, '0')}] ${seg.text}`).join('\n')}` : 
+${segments.map((seg: any, i: number) => `${i + 1}. [${Math.floor(seg.start / 60)}:${(seg.start % 60).toFixed(1).padStart(4, '0')}] ${seg.text}`).join('\n')}` : 
       text
 
     const completion = await openai.chat.completions.create({

@@ -20,9 +20,7 @@ const nextConfig: NextConfig = {
     ];
   },
   // ファイルサイズ制限を設定
-  experimental: {
-    serverComponentsExternalPackages: ['sharp'],
-  },
+  serverExternalPackages: ['sharp'],
 };
 
 export default nextConfig;
