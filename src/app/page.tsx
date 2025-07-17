@@ -5,6 +5,7 @@ import { videoConverter } from '@/utils/videoConverter'
 import { DictionaryStorage } from '@/utils/dictionaryStorage'
 import DictionaryManager from '@/components/DictionaryManager'
 import BulkReplacePanel from '@/components/BulkReplacePanel'
+import AccessControl from '@/components/AccessControl'
 
 interface Segment {
   start: number
@@ -12,7 +13,7 @@ interface Segment {
   text: string
 }
 
-export default function Home() {
+function MainApp() {
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [transcription, setTranscription] = useState<string>('')
   const [segments, setSegments] = useState<Segment[]>([])
@@ -320,7 +321,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <div className="flex justify-between items-center mb-4">
@@ -613,5 +614,13 @@ export default function Home() {
         onDictionariesChange={handleDictionariesChange}
       />
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <AccessControl>
+      <MainApp />
+    </AccessControl>
   )
 }
