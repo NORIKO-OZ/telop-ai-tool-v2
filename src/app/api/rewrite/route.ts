@@ -205,12 +205,12 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
         return `${minutes}:${secs.padStart(4, '0')}`
       }
 
-      const lines = rewrittenText.split('\n').filter(line => line.trim())
+      const lines = rewrittenText.split('\n').filter((line: string) => line.trim())
       
       // セグメントと行を対応付け（重要な部分のタイミングを推定）
       const segmentPerLine = Math.max(1, Math.floor(segments.length / lines.length))
       
-      rewrittenText = lines.map((line, index) => {
+      rewrittenText = lines.map((line: string, index: number) => {
         const segmentIndex = Math.min(index * segmentPerLine, segments.length - 1)
         const segment = segments[segmentIndex]
         // 末尾の句読点を除去
@@ -223,13 +223,13 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
     if (!rewrittenText.includes('[')) {
       // タイムスタンプがない場合
       rewrittenText = rewrittenText.split('\n')
-        .map(line => line.trim().replace(/[、。]+$/, ''))
-        .filter(line => line.length > 0)
+        .map((line: string) => line.trim().replace(/[、。]+$/, ''))
+        .filter((line: string) => line.length > 0)
         .join('\n')
     } else {
       // タイムスタンプがある場合
       rewrittenText = rewrittenText.split('\n')
-        .map(line => {
+        .map((line: string) => {
           const timestampMatch = line.match(/^(\[[\d:\.]+\])\s*(.*)/)
           if (timestampMatch) {
             const timestamp = timestampMatch[1]
@@ -238,7 +238,7 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
           }
           return line.trim().replace(/[、。]+$/, '')
         })
-        .filter(line => line.length > 0)
+        .filter((line: string) => line.length > 0)
         .join('\n')
     }
     
