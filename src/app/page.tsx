@@ -278,10 +278,16 @@ function MainApp() {
   }
 
   const exportTelopSRT = () => {
-    if (!rewrittenText || segments.length === 0) return
+    if (!rewrittenText || segments.length === 0) {
+      console.log('Export failed: rewrittenText or segments missing', { rewrittenText: !!rewrittenText, segments: segments.length })
+      return
+    }
 
     // テロップ用テキストと元のセグメントタイムスタンプを対応付け
     const telopLines = rewrittenText.split('\n').filter(line => line.trim())
+    console.log('Telop lines:', telopLines)
+    console.log('Available segments:', segments.length)
+    
     let srtContent = ''
     let telopIndex = 0
     let srtIndex = 1
@@ -294,9 +300,11 @@ function MainApp() {
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`
     }
 
-    telopLines.forEach((line) => {
+    telopLines.forEach((line, index) => {
       // [MM:SS.S] 形式のタイムスタンプを検出
       const timestampMatch = line.match(/^\[(\d+):(\d+\.\d+)\]\s*(.*)/)
+      
+      console.log(`Line ${index}: "${line}" - Match:`, timestampMatch)
       
       if (timestampMatch) {
         const minutes = parseInt(timestampMatch[1])
@@ -318,6 +326,8 @@ function MainApp() {
             }
           }
           
+          console.log(`Found segment for time ${targetTime}:`, bestSegment)
+          
           // 元のセグメントのタイムスタンプを使用
           srtContent += `${srtIndex}\n`
           srtContent += `${formatTime(bestSegment.start)} --> ${formatTime(bestSegment.end)}\n`
@@ -328,6 +338,7 @@ function MainApp() {
         // タイムスタンプがない場合は対応するセグメントを使用
         if (telopIndex < segments.length) {
           const segment = segments[telopIndex]
+          console.log(`Using segment ${telopIndex} for line without timestamp:`, segment)
           srtContent += `${srtIndex}\n`
           srtContent += `${formatTime(segment.start)} --> ${formatTime(segment.end)}\n`
           srtContent += `${line.trim()}\n\n`
@@ -336,6 +347,8 @@ function MainApp() {
         }
       }
     })
+
+    console.log('Final SRT content:', srtContent)
 
     const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
