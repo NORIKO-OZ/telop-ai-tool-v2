@@ -109,6 +109,13 @@ export async function POST(request: NextRequest) {
       // 使用量を記録
       if (userId) {
         UserManager.recordUsage(userId)
+        // デモモードでもクレジット消費（元の音声時間から計算）
+        if (segments && segments.length > 0) {
+          const lastSegment = segments[segments.length - 1]
+          const durationMinutes = lastSegment.start / 60
+          UserManager.consumeCredits(userId, durationMinutes)
+          console.log(`Demo mode: ${durationMinutes.toFixed(2)} minutes, ${Math.ceil(durationMinutes)} credits consumed`)
+        }
       }
       
       return NextResponse.json({ 
@@ -289,6 +296,13 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
     // 使用量を記録
     if (userId) {
       UserManager.recordUsage(userId)
+      // GPT-4モードでもクレジット消費（元の音声時間から計算）
+      if (segments && segments.length > 0) {
+        const lastSegment = segments[segments.length - 1]
+        const durationMinutes = lastSegment.start / 60
+        UserManager.consumeCredits(userId, durationMinutes)
+        console.log(`GPT-4 mode: ${durationMinutes.toFixed(2)} minutes, ${Math.ceil(durationMinutes)} credits consumed`)
+      }
     }
     
     return NextResponse.json({ 
