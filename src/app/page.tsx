@@ -278,14 +278,23 @@ function MainApp() {
   }
 
   const exportTelopSRT = () => {
-    if (!rewrittenText) return
+    if (!rewrittenText || segments.length === 0) return
 
-    // テロップ用テキストからタイムスタンプを抽出してSRT形式に変換
-    const lines = rewrittenText.split('\n').filter(line => line.trim())
+    // テロップ用テキストと元のセグメントタイムスタンプを対応付け
+    const telopLines = rewrittenText.split('\n').filter(line => line.trim())
     let srtContent = ''
-    let index = 1
+    let telopIndex = 0
+    let srtIndex = 1
 
-    lines.forEach((line) => {
+    const formatTime = (seconds: number) => {
+      const hours = Math.floor(seconds / 3600)
+      const minutes = Math.floor((seconds % 3600) / 60)
+      const secs = Math.floor(seconds % 60)
+      const ms = Math.floor((seconds % 1) * 1000)
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`
+    }
+
+    telopLines.forEach((line) => {
       // [MM:SS.S] 形式のタイムスタンプを検出
       const timestampMatch = line.match(/^\[(\d+):(\d+\.\d+)\]\s*(.*)/)
       
@@ -295,28 +304,36 @@ function MainApp() {
         const text = timestampMatch[3].trim()
         
         if (text) {
-          const startSeconds = minutes * 60 + seconds
-          const endSeconds = startSeconds + 3 // デフォルト3秒表示
+          const targetTime = minutes * 60 + seconds
           
-          const formatTime = (totalSeconds: number) => {
-            const hours = Math.floor(totalSeconds / 3600)
-            const mins = Math.floor((totalSeconds % 3600) / 60)
-            const secs = Math.floor(totalSeconds % 60)
-            const ms = Math.floor((totalSeconds % 1) * 1000)
-            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`
+          // 対応する元のセグメントを探す
+          let bestSegment = segments[0]
+          let minDiff = Math.abs(segments[0].start - targetTime)
+          
+          for (let i = 1; i < segments.length; i++) {
+            const diff = Math.abs(segments[i].start - targetTime)
+            if (diff < minDiff) {
+              minDiff = diff
+              bestSegment = segments[i]
+            }
           }
-
-          srtContent += `${index}\n`
-          srtContent += `${formatTime(startSeconds)} --> ${formatTime(endSeconds)}\n`
+          
+          // 元のセグメントのタイムスタンプを使用
+          srtContent += `${srtIndex}\n`
+          srtContent += `${formatTime(bestSegment.start)} --> ${formatTime(bestSegment.end)}\n`
           srtContent += `${text}\n\n`
-          index++
+          srtIndex++
         }
       } else if (line.trim()) {
-        // タイムスタンプがない場合のフォールバック
-        srtContent += `${index}\n`
-        srtContent += `00:00:00,000 --> 00:00:03,000\n`
-        srtContent += `${line.trim()}\n\n`
-        index++
+        // タイムスタンプがない場合は対応するセグメントを使用
+        if (telopIndex < segments.length) {
+          const segment = segments[telopIndex]
+          srtContent += `${srtIndex}\n`
+          srtContent += `${formatTime(segment.start)} --> ${formatTime(segment.end)}\n`
+          srtContent += `${line.trim()}\n\n`
+          srtIndex++
+          telopIndex++
+        }
       }
     })
 
