@@ -8,12 +8,14 @@ export async function POST(request: NextRequest) {
     const hasApiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '' && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here'
     console.log('Has valid API key:', hasApiKey)
     
-    const { text, segments, summaryLevel = 2, userId } = await request.json()
+    const { text, segments, summaryLevel = 2, userId, maxCharsPerLine = 20, maxLines = 2 } = await request.json()
     
     console.log('Text received:', text ? text.substring(0, 50) + '...' : 'No text')
     console.log('Segments received:', segments ? segments.length : 0)
     console.log('Summary level:', summaryLevel)
     console.log('User ID:', userId)
+    console.log('Max chars per line:', maxCharsPerLine)
+    console.log('Max lines:', maxLines)
     
     if (!text) {
       console.log('No text provided')
@@ -55,31 +57,26 @@ export async function POST(request: NextRequest) {
       
       // 要約レベルに応じた処理
       let summaryRatio: number
-      let maxLength: number
       
       switch (summaryLevel) {
         case 1: // 詳細(80%)
           summaryRatio = 0.8
-          maxLength = 20
           break
         case 2: // 標準(50%)
           summaryRatio = 0.5
-          maxLength = 16
           break
         case 3: // 簡潔(30%)
           summaryRatio = 0.3
-          maxLength = 12
           break
         default:
           summaryRatio = 0.5
-          maxLength = 16
       }
       
       const keyPoints = sentences
         .filter((sentence: string) => sentence.length > 5) // 短すぎる文は除外
         .map((sentence: string) => sentence.trim())
         .slice(0, Math.ceil(sentences.length * summaryRatio))
-        .map((sentence: string) => sentence.substring(0, maxLength))
+        .map((sentence: string) => sentence.substring(0, maxCharsPerLine))
         .map((sentence: string) => sentence.replace(/[、。]+$/, '')) // 末尾の句読点を除去
 
       // タイムスタンプ付きテキストを生成（デモモード）
@@ -99,9 +96,9 @@ export async function POST(request: NextRequest) {
             return `[${formatTime(segment.start)}] ${point}`
           }
           return point
-        }).join('\n')
+        }).slice(0, maxLines).join('\n')
       } else {
-        cleanText = keyPoints.join('\n')
+        cleanText = keyPoints.slice(0, maxLines).join('\n')
       }
 
       console.log('Returning demo result:', cleanText.substring(0, 50) + '...')
@@ -131,25 +128,21 @@ export async function POST(request: NextRequest) {
         case 1: // 詳細(80%)
           return {
             ratio: '70-80%',
-            length: '15-20文字',
             description: '重要な内容を詳しく残す'
           }
         case 2: // 標準(50%)
           return {
             ratio: '40-60%',
-            length: '12-16文字',
             description: '要点を適度に要約'
           }
         case 3: // 簡潔(30%)
           return {
             ratio: '20-40%',
-            length: '8-12文字',
             description: '最重要な核心のみ抽出'
           }
         default:
           return {
             ratio: '40-60%',
-            length: '12-16文字',
             description: '要点を適度に要約'
           }
       }
@@ -161,13 +154,16 @@ export async function POST(request: NextRequest) {
       `あなたは動画のテロップ作成の専門家です。元の音声の要点を抽出し、テロップ用の短文に変換してください。
 
 要約レベル: ${summaryLevel} (${config.description})
+文字数制限: 1行最大${maxCharsPerLine}文字
+行数制限: 同時表示最大${maxLines}行
 
 以下のルールに従ってください：
 - 元の文章の${config.ratio}程度の長さに要約
 - 重要な内容のみを抽出（全文ではなく要点のみ）
 - 「えー」「あの」「まあ」「そのー」などの口癖・間投詞は完全削除
 - 冗長な表現や繰り返しを削除し、核心のみ残す
-- 1行${config.length}程度で簡潔に
+- 1行は必ず${maxCharsPerLine}文字以内に収める
+- 同時に表示するのは最大${maxLines}行まで
 - 意味のある重要な部分のみ選択
 - 読みやすく印象的なキーワードを重視
 - 各行の先頭にタイムスタンプを [MM:SS.S] 形式で付与
@@ -175,24 +171,28 @@ export async function POST(request: NextRequest) {
 
 出力形式：
 重要な部分のみを選択し、行頭にタイムスタンプを付けて出力してください。
+各テロップブロックは最大${maxLines}行で、各行は${maxCharsPerLine}文字以内にしてください。
 例: [1:23.4] 動画編集は大変
 例: [1:28.1] テロップ作成に時間がかかる` :
       `あなたは動画のテロップ作成の専門家です。話し言葉を読みやすいテロップ用の短文に変換してください。
 
 要約レベル: ${summaryLevel} (${config.description})
+文字数制限: 1行最大${maxCharsPerLine}文字
+行数制限: 同時表示最大${maxLines}行
 
 以下のルールに従ってください：
 - 元の文章の${config.ratio}程度の長さに要約
 - 「えー」「あの」「まあ」などの口癖・間投詞は削除
 - 冗長な表現を簡潔に
-- 1行${config.length}程度で自然な改行
+- 1行は必ず${maxCharsPerLine}文字以内に収める
+- 同時に表示するのは最大${maxLines}行まで
 - 意味のまとまりで区切る
 - 読みやすいリズムを重視
 - 話し言葉の自然さを保持
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
 
 出力形式：
-各行を改行で区切って出力してください。`
+各行を改行で区切って出力してください。各行は${maxCharsPerLine}文字以内にしてください。`
 
     const userContent = segments && segments.length > 0 ? 
       `元のテキスト: ${text}

@@ -32,6 +32,8 @@ function MainApp() {
   const [originalRewrittenText, setOriginalRewrittenText] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [maxCharsPerLine, setMaxCharsPerLine] = useState(20)
+  const [maxLines, setMaxLines] = useState(2)
 
   useEffect(() => {
     // アクティブな辞書を読み込み
@@ -168,7 +170,14 @@ function MainApp() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, segments: segmentsData || segments, summaryLevel, userId }),
+        body: JSON.stringify({ 
+          text, 
+          segments: segmentsData || segments, 
+          summaryLevel, 
+          userId,
+          maxCharsPerLine,
+          maxLines
+        }),
       })
       
       console.log('Rewrite response status:', response.status)
@@ -531,6 +540,41 @@ function MainApp() {
                       >
                         レベル3<br/><span className="text-xs">簡潔(30%)</span>
                       </button>
+                    </div>
+                  </div>
+                  
+                  {/* テロップ形式設定 */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      テロップ形式設定
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">1行の文字数</label>
+                        <select
+                          value={maxCharsPerLine}
+                          onChange={(e) => setMaxCharsPerLine(parseInt(e.target.value))}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value={10}>10文字</option>
+                          <option value={15}>15文字</option>
+                          <option value={20}>20文字</option>
+                          <option value={25}>25文字</option>
+                          <option value={30}>30文字</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">同時表示行数</label>
+                        <select
+                          value={maxLines}
+                          onChange={(e) => setMaxLines(parseInt(e.target.value))}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value={1}>1行</option>
+                          <option value={2}>2行</option>
+                          <option value={3}>3行</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   
