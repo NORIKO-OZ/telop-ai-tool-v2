@@ -133,9 +133,6 @@ export default function AccessControl({ children }: AccessControlProps) {
           <div className="mt-6 text-center text-gray-400 text-sm">
             <p>このツールはサロンメンバー限定です</p>
             <p>ユーザーIDとパスワードがわからない場合は、サロン内でお問い合わせください</p>
-            <div className="mt-4 text-xs">
-              <p className="text-gray-500">テストユーザー: admin / admin123</p>
-            </div>
           </div>
         </div>
       </div>
