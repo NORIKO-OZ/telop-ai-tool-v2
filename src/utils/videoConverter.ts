@@ -14,8 +14,8 @@ class VideoConverter {
           try {
             console.log(`Video duration: ${video.duration} seconds`);
             
-            // 長い動画の場合は最初の30秒のみ処理
-            const maxDuration = Math.min(video.duration, 30);
+            // 動画全体を処理（クレジット制限で管理）
+            const maxDuration = video.duration;
             
             const stream = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
             if (!stream) {
