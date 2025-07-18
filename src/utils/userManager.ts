@@ -402,4 +402,39 @@ export class UserManager {
     user.active = !user.active
     return true
   }
+
+  // ユーザーID変更（管理者用）
+  static changeUserId(currentId: string, newId: string): boolean {
+    const user = this.users[currentId]
+    if (!user || currentId === 'admin') return false
+    
+    // 新しいIDが既に存在する場合は失敗
+    if (this.users[newId]) return false
+    
+    // 新しいIDでユーザーを作成
+    this.users[newId] = { ...user, id: newId }
+    
+    // 古いIDを削除
+    delete this.users[currentId]
+    
+    return true
+  }
+
+  // パスワード変更（管理者用）
+  static changePassword(userId: string, newPassword: string): boolean {
+    const user = this.users[userId]
+    if (!user || !newPassword || newPassword.length < 6) return false
+    
+    user.password = newPassword
+    return true
+  }
+
+  // ユーザー名変更（管理者用）
+  static changeName(userId: string, newName: string): boolean {
+    const user = this.users[userId]
+    if (!user || !newName) return false
+    
+    user.name = newName
+    return true
+  }
 }

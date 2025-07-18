@@ -111,16 +111,69 @@ export default function AdminPanel() {
     }
   }
 
-  const handleUpdateLimits = () => {
+  const handleUpdateUserInfo = () => {
     if (!selectedUser) return
 
-    const success = UserManager.updateLimits(selectedUser.id, selectedUser.limits)
-    if (success) {
-      setSuccess('制限を更新しました')
-      setSelectedUser(null)
-      loadUsers()
-    } else {
-      setError('制限の更新に失敗しました')
+    // 元のIDを保存
+    const originalUser = users.find(u => u.id === selectedUser.id)
+    if (!originalUser) return
+
+    const originalId = originalUser.id
+    let updateSuccess = true
+    const errors: string[] = []
+
+    try {
+      // パスワード変更
+      if (selectedUser.password && selectedUser.password !== originalUser.password) {
+        if (selectedUser.password.length < 6) {
+          errors.push('パスワードは6文字以上で入力してください')
+          updateSuccess = false
+        } else {
+          const passwordSuccess = UserManager.changePassword(originalId, selectedUser.password)
+          if (!passwordSuccess) {
+            errors.push('パスワードの変更に失敗しました')
+            updateSuccess = false
+          }
+        }
+      }
+
+      // 名前変更
+      if (selectedUser.name !== originalUser.name) {
+        const nameSuccess = UserManager.changeName(originalId, selectedUser.name)
+        if (!nameSuccess) {
+          errors.push('名前の変更に失敗しました')
+          updateSuccess = false
+        }
+      }
+
+      // ID変更（管理者以外）
+      if (selectedUser.id !== originalId && originalId !== 'admin') {
+        const idSuccess = UserManager.changeUserId(originalId, selectedUser.id)
+        if (!idSuccess) {
+          errors.push('IDの変更に失敗しました（重複している可能性があります）')
+          updateSuccess = false
+        }
+      }
+
+      // 制限変更
+      const currentUser = UserManager.getUser(selectedUser.id)
+      if (currentUser) {
+        const limitsSuccess = UserManager.updateLimits(selectedUser.id, selectedUser.limits)
+        if (!limitsSuccess) {
+          errors.push('制限の更新に失敗しました')
+          updateSuccess = false
+        }
+      }
+
+      if (updateSuccess) {
+        setSuccess('ユーザー情報を更新しました')
+        setSelectedUser(null)
+        loadUsers()
+      } else {
+        setError(errors.join('、'))
+      }
+    } catch (error) {
+      setError('ユーザー情報の更新中にエラーが発生しました')
     }
   }
 
@@ -424,44 +477,89 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* 制限編集モーダル */}
+      {/* ユーザー情報編集モーダル */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold mb-4">制限編集: {selectedUser.name}</h3>
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-xl font-semibold mb-4">ユーザー編集: {selectedUser.name}</h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">月次クレジット制限</label>
-                <input
-                  type="number"
-                  value={selectedUser.limits.monthlyCredits}
-                  onChange={(e) => setSelectedUser({
-                    ...selectedUser,
-                    limits: {
-                      ...selectedUser.limits,
-                      monthlyCredits: parseInt(e.target.value) || 0
-                    }
-                  })}
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
-                  min="0"
-                  placeholder="例: 300 (5時間分)"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">ユーザーID</label>
+                  <input
+                    type="text"
+                    value={selectedUser.id}
+                    onChange={(e) => setSelectedUser({
+                      ...selectedUser,
+                      id: e.target.value
+                    })}
+                    className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
+                    disabled={selectedUser.id === 'admin'}
+                  />
+                  {selectedUser.id === 'admin' && (
+                    <p className="text-xs text-gray-400 mt-1">管理者のIDは変更できません</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">名前</label>
+                  <input
+                    type="text"
+                    value={selectedUser.name}
+                    onChange={(e) => setSelectedUser({
+                      ...selectedUser,
+                      name: e.target.value
+                    })}
+                    className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">最大ファイルサイズ (MB)</label>
+                <label className="block text-sm font-medium mb-2">パスワード</label>
                 <input
-                  type="number"
-                  value={selectedUser.limits.maxFileSize}
+                  type="password"
+                  value={selectedUser.password}
                   onChange={(e) => setSelectedUser({
                     ...selectedUser,
-                    limits: {
-                      ...selectedUser.limits,
-                      maxFileSize: parseInt(e.target.value) || 0
-                    }
+                    password: e.target.value
                   })}
                   className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
-                  min="0"
+                  placeholder="新しいパスワード（6文字以上）"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">月次クレジット制限</label>
+                  <input
+                    type="number"
+                    value={selectedUser.limits.monthlyCredits}
+                    onChange={(e) => setSelectedUser({
+                      ...selectedUser,
+                      limits: {
+                        ...selectedUser.limits,
+                        monthlyCredits: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
+                    min="0"
+                    placeholder="例: 300 (5時間分)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">最大ファイルサイズ (MB)</label>
+                  <input
+                    type="number"
+                    value={selectedUser.limits.maxFileSize}
+                    onChange={(e) => setSelectedUser({
+                      ...selectedUser,
+                      limits: {
+                        ...selectedUser.limits,
+                        maxFileSize: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
+                    min="0"
+                  />
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
@@ -472,7 +570,7 @@ export default function AdminPanel() {
                 キャンセル
               </button>
               <button
-                onClick={handleUpdateLimits}
+                onClick={handleUpdateUserInfo}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
               >
                 更新

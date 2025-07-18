@@ -24,7 +24,7 @@ function MainApp() {
   const [isConverting, setIsConverting] = useState(false)
   const [step, setStep] = useState<'upload' | 'convert' | 'transcribe' | 'rewrite'>('upload')
   const [showOriginalText, setShowOriginalText] = useState(false)
-  const [summaryLevel, setSummaryLevel] = useState<1 | 2 | 3>(2)
+  const [summaryLevel, setSummaryLevel] = useState<0 | 1 | 2 | 3>(2)
   const [showDictionaryManager, setShowDictionaryManager] = useState(false)
   const [activeDictionaries, setActiveDictionaries] = useState<string[]>([])
   const [appliedTermsCount, setAppliedTermsCount] = useState(0)
@@ -509,7 +509,17 @@ function MainApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       テロップの要約レベル
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSummaryLevel(0)}
+                        className={`px-3 py-2 text-sm rounded-lg border ${
+                          summaryLevel === 0 
+                            ? 'bg-blue-600 text-white border-blue-600' 
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        原文ベース<br/><span className="text-xs">口癖削除のみ</span>
+                      </button>
                       <button
                         onClick={() => setSummaryLevel(1)}
                         className={`px-3 py-2 text-sm rounded-lg border ${
@@ -520,6 +530,8 @@ function MainApp() {
                       >
                         レベル1<br/><span className="text-xs">詳細(80%)</span>
                       </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
                       <button
                         onClick={() => setSummaryLevel(2)}
                         className={`px-3 py-2 text-sm rounded-lg border ${
