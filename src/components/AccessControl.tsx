@@ -82,7 +82,7 @@ export default function AccessControl({ children }: AccessControlProps) {
               🎬 AI Telop Generator v2
             </h1>
             <p className="text-gray-300 text-sm">
-              サロンメンバー限定ツール
+              Magnetメンバー限定ツール
             </p>
           </div>
           
@@ -131,8 +131,8 @@ export default function AccessControl({ children }: AccessControlProps) {
           </form>
           
           <div className="mt-6 text-center text-gray-400 text-sm">
-            <p>このツールはサロンメンバー限定です</p>
-            <p>ユーザーIDとパスワードがわからない場合は、サロン内でお問い合わせください</p>
+            <p>このツールはMagnetメンバー限定です</p>
+            <p>ユーザーIDとパスワードがわからない場合は、Magnet内でお問い合わせください</p>
           </div>
         </div>
       </div>
