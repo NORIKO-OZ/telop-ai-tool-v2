@@ -6,6 +6,8 @@ import { DictionaryStorage } from '@/utils/dictionaryStorage'
 import DictionaryManager from '@/components/DictionaryManager'
 import BulkReplacePanel from '@/components/BulkReplacePanel'
 import AccessControl from '@/components/AccessControl'
+import AdminPanel from '@/components/AdminPanel'
+import { UserManager } from '@/utils/userManager'
 
 interface Segment {
   start: number
@@ -28,10 +30,16 @@ function MainApp() {
   const [appliedTermsCount, setAppliedTermsCount] = useState(0)
   const [showBulkReplace, setShowBulkReplace] = useState(false)
   const [originalRewrittenText, setOriginalRewrittenText] = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   useEffect(() => {
     // アクティブな辞書を読み込み
     setActiveDictionaries(DictionaryStorage.getActiveDictionaries())
+    
+    // ローカルストレージからユーザーIDを取得
+    const storedUserId = localStorage.getItem('telop-userId')
+    setUserId(storedUserId)
   }, [])
 
   const handleDictionariesChange = () => {
@@ -106,6 +114,9 @@ function MainApp() {
       console.log('Starting transcription for file:', audioFile.name, audioFile.type)
       const formData = new FormData()
       formData.append('audio', audioFile)
+      if (userId) {
+        formData.append('userId', userId)
+      }
       
       const response = await fetch('/api/transcribe', {
         method: 'POST',
@@ -157,7 +168,7 @@ function MainApp() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, segments: segmentsData || segments, summaryLevel }),
+        body: JSON.stringify({ text, segments: segmentsData || segments, summaryLevel, userId }),
       })
       
       console.log('Rewrite response status:', response.status)
@@ -334,15 +345,28 @@ function MainApp() {
                 音声を文字起こしして、テロップ用の短文に自動変換します
               </p>
             </div>
-            <button
-              onClick={() => setShowDictionaryManager(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <span>用語辞書</span>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowDictionaryManager(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span>用語辞書</span>
             </button>
+            {userId && UserManager.isAdmin(userId) && (
+              <button
+                onClick={() => setShowAdminPanel(true)}
+                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>管理者パネル</span>
+              </button>
+            )}
           </div>
           
           {/* 辞書状態表示 */}
@@ -606,6 +630,7 @@ function MainApp() {
           </div>
         </div>
       </div>
+      </div>
 
       {/* 辞書管理モーダル */}
       <DictionaryManager
@@ -613,6 +638,26 @@ function MainApp() {
         onClose={() => setShowDictionaryManager(false)}
         onDictionariesChange={handleDictionariesChange}
       />
+
+      {/* 管理者パネル */}
+      {showAdminPanel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto m-4">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-2xl font-bold">管理者パネル</h2>
+              <button
+                onClick={() => setShowAdminPanel(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <AdminPanel />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

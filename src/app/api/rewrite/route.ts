@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { UserManager } from '@/utils/userManager'
 
 export async function POST(request: NextRequest) {
   console.log('=== New Rewrite API called ===')
@@ -7,15 +8,33 @@ export async function POST(request: NextRequest) {
     const hasApiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '' && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here'
     console.log('Has valid API key:', hasApiKey)
     
-    const { text, segments, summaryLevel = 2 } = await request.json()
+    const { text, segments, summaryLevel = 2, userId } = await request.json()
     
     console.log('Text received:', text ? text.substring(0, 50) + '...' : 'No text')
     console.log('Segments received:', segments ? segments.length : 0)
     console.log('Summary level:', summaryLevel)
+    console.log('User ID:', userId)
     
     if (!text) {
       console.log('No text provided')
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
+    }
+
+    // ユーザー認証と使用量チェック
+    if (userId) {
+      const user = UserManager.getUser(userId)
+      
+      if (!user || !user.active) {
+        console.log('User not found or inactive:', userId)
+        return NextResponse.json({ error: 'User not found or inactive' }, { status: 401 })
+      }
+      
+      // 使用量制限チェック
+      const usageCheck = UserManager.checkUsageLimit(userId)
+      if (!usageCheck.canUse) {
+        console.log('Usage limit exceeded for user:', userId, usageCheck.reason)
+        return NextResponse.json({ error: usageCheck.reason }, { status: 429 })
+      }
     }
 
     if (!hasApiKey) {
@@ -86,6 +105,11 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('Returning demo result:', cleanText.substring(0, 50) + '...')
+      
+      // 使用量を記録
+      if (userId) {
+        UserManager.recordUsage(userId)
+      }
       
       return NextResponse.json({ 
         rewrittenText: cleanText,
@@ -240,6 +264,11 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
         })
         .filter((line: string) => line.length > 0)
         .join('\n')
+    }
+    
+    // 使用量を記録
+    if (userId) {
+      UserManager.recordUsage(userId)
     }
     
     return NextResponse.json({ 

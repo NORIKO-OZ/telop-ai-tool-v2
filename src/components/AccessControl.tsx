@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { UserManager, User } from '@/utils/userManager'
 
 interface AccessControlProps {
   children: React.ReactNode
@@ -8,18 +9,27 @@ interface AccessControlProps {
 
 export default function AccessControl({ children }: AccessControlProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
 
-  // サロンメンバー用のパスワード（実際の使用時は環境変数から取得）
-  const SALON_PASSWORD = 'telop2024'
-
   useEffect(() => {
     // ローカルストレージから認証状態を確認
     const authStatus = localStorage.getItem('telop-auth')
-    if (authStatus === 'authenticated') {
-      setIsAuthenticated(true)
+    const storedUserId = localStorage.getItem('telop-userId')
+    
+    if (authStatus === 'authenticated' && storedUserId) {
+      const user = UserManager.getUser(storedUserId)
+      if (user && user.active) {
+        setIsAuthenticated(true)
+        setCurrentUser(user)
+        setUserId(storedUserId)
+      } else {
+        localStorage.removeItem('telop-auth')
+        localStorage.removeItem('telop-userId')
+      }
     }
     setIsLoading(false)
   }, [])
@@ -27,19 +37,31 @@ export default function AccessControl({ children }: AccessControlProps) {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (password === SALON_PASSWORD) {
+    if (!userId.trim()) {
+      setError('ユーザーIDを入力してください')
+      return
+    }
+    
+    const user = UserManager.authenticate(userId, password)
+    
+    if (user) {
       setIsAuthenticated(true)
+      setCurrentUser(user)
       localStorage.setItem('telop-auth', 'authenticated')
+      localStorage.setItem('telop-userId', userId)
       setError('')
     } else {
-      setError('パスワードが間違っています')
+      setError('ユーザーIDまたはパスワードが間違っています')
       setPassword('')
     }
   }
 
   const handleLogout = () => {
     setIsAuthenticated(false)
+    setCurrentUser(null)
     localStorage.removeItem('telop-auth')
+    localStorage.removeItem('telop-userId')
+    setUserId('')
     setPassword('')
   }
 
@@ -66,6 +88,20 @@ export default function AccessControl({ children }: AccessControlProps) {
           
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
+              <label htmlFor="userId" className="block text-sm font-medium text-gray-300 mb-2">
+                ユーザーID
+              </label>
+              <input
+                type="text"
+                id="userId"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="ユーザーIDを入力"
+                required
+              />
+            </div>
+            <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 パスワード
               </label>
@@ -75,7 +111,7 @@ export default function AccessControl({ children }: AccessControlProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="サロンメンバー用パスワードを入力"
+                placeholder="パスワードを入力"
                 required
               />
             </div>
@@ -96,7 +132,10 @@ export default function AccessControl({ children }: AccessControlProps) {
           
           <div className="mt-6 text-center text-gray-400 text-sm">
             <p>このツールはサロンメンバー限定です</p>
-            <p>パスワードがわからない場合は、サロン内でお問い合わせください</p>
+            <p>ユーザーIDとパスワードがわからない場合は、サロン内でお問い合わせください</p>
+            <div className="mt-4 text-xs">
+              <p className="text-gray-500">テストユーザー: admin / admin123</p>
+            </div>
           </div>
         </div>
       </div>
@@ -105,17 +144,32 @@ export default function AccessControl({ children }: AccessControlProps) {
 
   return (
     <div>
-      {/* ヘッダーにログアウトボタンを追加 */}
+      {/* ヘッダーにユーザー情報とログアウトボタンを追加 */}
       <div className="bg-gray-800 p-4 flex justify-between items-center">
         <div className="text-white font-medium">
-          🎬 AI Telop Generator v2 - サロンメンバー限定
+          🎬 AI Telop Generator v2 - {currentUser?.name || 'ユーザー'}
+          {currentUser?.role === 'admin' && (
+            <span className="ml-2 px-2 py-1 bg-yellow-600 text-xs rounded">管理者</span>
+          )}
         </div>
-        <button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm transition-colors"
-        >
-          ログアウト
-        </button>
+        <div className="flex items-center space-x-4">
+          {currentUser && (
+            <div className="text-gray-300 text-sm flex items-center space-x-4">
+              <div>
+                💳 クレジット: {currentUser.limits.monthlyCredits - currentUser.usage.monthlyCreditsUsed}/{currentUser.limits.monthlyCredits}
+              </div>
+              <div>
+                📊 日次: {currentUser.usage.dailyRequests}/{currentUser.limits.dailyRequests}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm transition-colors"
+          >
+            ログアウト
+          </button>
+        </div>
       </div>
       
       {/* メインコンテンツ */}

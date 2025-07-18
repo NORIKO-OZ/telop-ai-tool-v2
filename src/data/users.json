@@ -1,0 +1,84 @@
+{
+  "users": {
+    "admin": {
+      "id": "admin",
+      "password": "admin123",
+      "name": "管理者",
+      "role": "admin",
+      "limits": {
+        "dailyRequests": 999,
+        "monthlyRequests": 999,
+        "maxFileSize": 100
+      },
+      "usage": {
+        "totalRequests": 0,
+        "dailyRequests": 0,
+        "monthlyRequests": 0,
+        "lastRequestDate": null,
+        "lastResetDate": null
+      },
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "active": true
+    },
+    "user001": {
+      "id": "user001",
+      "password": "telop2024",
+      "name": "田中太郎",
+      "role": "user",
+      "limits": {
+        "dailyRequests": 10,
+        "monthlyRequests": 100,
+        "maxFileSize": 50
+      },
+      "usage": {
+        "totalRequests": 0,
+        "dailyRequests": 0,
+        "monthlyRequests": 0,
+        "lastRequestDate": null,
+        "lastResetDate": null
+      },
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "active": true
+    },
+    "user002": {
+      "id": "user002",
+      "password": "salon2024",
+      "name": "佐藤花子",
+      "role": "user",
+      "limits": {
+        "dailyRequests": 5,
+        "monthlyRequests": 50,
+        "maxFileSize": 30
+      },
+      "usage": {
+        "totalRequests": 0,
+        "dailyRequests": 0,
+        "monthlyRequests": 0,
+        "lastRequestDate": null,
+        "lastResetDate": null
+      },
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "active": true
+    },
+    "user003": {
+      "id": "user003",
+      "password": "video2024",
+      "name": "高橋一郎",
+      "role": "user",
+      "limits": {
+        "dailyRequests": 15,
+        "monthlyRequests": 150,
+        "maxFileSize": 75
+      },
+      "usage": {
+        "totalRequests": 0,
+        "dailyRequests": 0,
+        "monthlyRequests": 0,
+        "lastRequestDate": null,
+        "lastResetDate": null
+      },
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "active": true
+    }
+  }
+}
