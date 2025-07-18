@@ -3,5 +3,12 @@
     "src/app/api/**/*.ts": {
       "maxDuration": 300
     }
-  }
+  },
+  "regions": ["hnd1"],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
 }
