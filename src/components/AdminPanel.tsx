@@ -172,7 +172,7 @@ export default function AdminPanel() {
       } else {
         setError(errors.join('、'))
       }
-    } catch (error) {
+    } catch {
       setError('ユーザー情報の更新中にエラーが発生しました')
     }
   }
