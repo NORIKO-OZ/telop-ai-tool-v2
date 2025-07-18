@@ -151,13 +151,8 @@ export default function AccessControl({ children }: AccessControlProps) {
         </div>
         <div className="flex items-center space-x-4">
           {currentUser && (
-            <div className="text-gray-300 text-sm flex items-center space-x-4">
-              <div>
-                💳 クレジット: {currentUser.limits.monthlyCredits - currentUser.usage.monthlyCreditsUsed}/{currentUser.limits.monthlyCredits}
-              </div>
-              <div>
-                📊 月次: {currentUser.usage.monthlyRequests}/{currentUser.limits.monthlyRequests}
-              </div>
+            <div className="text-gray-300 text-sm">
+              💳 クレジット: {currentUser.limits.monthlyCredits - currentUser.usage.monthlyCreditsUsed}/{currentUser.limits.monthlyCredits}
             </div>
           )}
           <button

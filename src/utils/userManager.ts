@@ -164,13 +164,7 @@ export class UserManager {
 
     // 日次制限チェック（削除済み - クレジット制限を使用）
 
-    // 月次制限チェック
-    if (user.usage.monthlyRequests >= user.limits.monthlyRequests) {
-      return { 
-        canUse: false, 
-        reason: `月次制限に達しました（${user.limits.monthlyRequests}回/月）` 
-      }
-    }
+    // 月次制限チェック（削除済み - クレジット制限のみ使用）
 
     // 月次クレジット制限チェック
     if (user.usage.monthlyCreditsUsed >= user.limits.monthlyCredits) {
