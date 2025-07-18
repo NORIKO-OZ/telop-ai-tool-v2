@@ -162,13 +162,7 @@ export class UserManager {
       user.usage.lastResetDate = currentMonth
     }
 
-    // 日次制限チェック
-    if (user.usage.dailyRequests >= user.limits.dailyRequests) {
-      return { 
-        canUse: false, 
-        reason: `日次制限に達しました（${user.limits.dailyRequests}回/日）` 
-      }
-    }
+    // 日次制限チェック（削除済み - クレジット制限を使用）
 
     // 月次制限チェック
     if (user.usage.monthlyRequests >= user.limits.monthlyRequests) {

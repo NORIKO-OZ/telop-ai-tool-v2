@@ -29,7 +29,6 @@ export default function AdminPanel() {
     password: '',
     name: '',
     role: 'user' as 'admin' | 'user',
-    dailyRequests: 10,
     monthlyRequests: 100,
     monthlyCredits: 300,
     maxFileSize: 50
@@ -67,7 +66,7 @@ export default function AdminPanel() {
       name: newUser.name,
       role: newUser.role,
       limits: {
-        dailyRequests: newUser.dailyRequests,
+        dailyRequests: 999, // 大きな値で実質無制限
         monthlyRequests: newUser.monthlyRequests,
         monthlyCredits: newUser.monthlyCredits,
         maxFileSize: newUser.maxFileSize
@@ -82,7 +81,6 @@ export default function AdminPanel() {
         password: '',
         name: '',
         role: 'user',
-        dailyRequests: 10,
         monthlyRequests: 100,
         monthlyCredits: 300,
         maxFileSize: 50
@@ -323,16 +321,6 @@ export default function AdminPanel() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">日次制限</label>
-            <input
-              type="number"
-              value={newUser.dailyRequests}
-              onChange={(e) => setNewUser({ ...newUser, dailyRequests: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
-              min="0"
-            />
-          </div>
-          <div>
             <label className="block text-sm font-medium mb-2">月次制限</label>
             <input
               type="number"
@@ -383,7 +371,6 @@ export default function AdminPanel() {
                 <th className="text-left p-2">名前</th>
                 <th className="text-left p-2">権限</th>
                 <th className="text-left p-2">状態</th>
-                <th className="text-left p-2">日次使用</th>
                 <th className="text-left p-2">月次使用</th>
                 <th className="text-left p-2">クレジット</th>
                 <th className="text-left p-2">制限</th>
@@ -410,16 +397,13 @@ export default function AdminPanel() {
                     </span>
                   </td>
                   <td className="p-2">
-                    {user.usage.dailyRequests}/{user.limits.dailyRequests}
-                  </td>
-                  <td className="p-2">
                     {user.usage.monthlyRequests}/{user.limits.monthlyRequests}
                   </td>
                   <td className="p-2">
                     {user.usage.monthlyCreditsUsed}/{user.limits.monthlyCredits}
                   </td>
                   <td className="p-2 text-xs">
-                    日:{user.limits.dailyRequests} 月:{user.limits.monthlyRequests} クレ:{user.limits.monthlyCredits} サイズ:{user.limits.maxFileSize}MB
+                    月:{user.limits.monthlyRequests} クレ:{user.limits.monthlyCredits} サイズ:{user.limits.maxFileSize}MB
                   </td>
                   <td className="p-2">
                     <div className="flex gap-2">
@@ -462,22 +446,6 @@ export default function AdminPanel() {
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-xl font-semibold mb-4">制限編集: {selectedUser.name}</h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">日次制限</label>
-                <input
-                  type="number"
-                  value={selectedUser.limits.dailyRequests}
-                  onChange={(e) => setSelectedUser({
-                    ...selectedUser,
-                    limits: {
-                      ...selectedUser.limits,
-                      dailyRequests: parseInt(e.target.value) || 0
-                    }
-                  })}
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
-                  min="0"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium mb-2">月次制限</label>
                 <input

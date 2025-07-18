@@ -156,7 +156,7 @@ export default function AccessControl({ children }: AccessControlProps) {
                 💳 クレジット: {currentUser.limits.monthlyCredits - currentUser.usage.monthlyCreditsUsed}/{currentUser.limits.monthlyCredits}
               </div>
               <div>
-                📊 日次: {currentUser.usage.dailyRequests}/{currentUser.limits.dailyRequests}
+                📊 月次: {currentUser.usage.monthlyRequests}/{currentUser.limits.monthlyRequests}
               </div>
             </div>
           )}
