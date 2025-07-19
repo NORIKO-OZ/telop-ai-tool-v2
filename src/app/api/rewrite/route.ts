@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const hasApiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '' && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here'
     console.log('Has valid API key:', hasApiKey)
     
-    const { text, segments, summaryLevel = 2, userId, maxCharsPerLine = 20, maxLines = 2 } = await request.json()
+    const { text, segments, summaryLevel = 2, userId, maxCharsPerLine = 20, maxLines = 2, politeStyle = 'auto' } = await request.json()
     
     console.log('Text received:', text ? text.substring(0, 50) + '...' : 'No text')
     console.log('Segments received:', segments ? segments.length : 0)
@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     console.log('User ID:', userId)
     console.log('Max chars per line:', maxCharsPerLine)
     console.log('Max lines:', maxLines)
+    console.log('Polite style:', politeStyle)
     
     if (!text) {
       console.log('No text provided')
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
 要約レベル: ${summaryLevel} (${config.description})
 文字数制限: 1行最大${maxCharsPerLine}文字
 行数制限: 同時表示最大${maxLines}行
+敬語設定: ${politeStyle === 'polite' ? 'です・ます調（丁寧語）' : politeStyle === 'casual' ? 'だ・である調（常体）' : '元の調子を保持'}
 
 以下のルールに従ってください：
 ${summaryLevel === 0 ? 
@@ -189,6 +191,7 @@ ${summaryLevel === 0 ?
 - 同時に表示するのは最大${maxLines}行まで
 - 各行の先頭にタイムスタンプを [MM:SS.S] 形式で付与
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
+${politeStyle === 'polite' ? '- 「です・ます」調の丁寧語で統一する' : politeStyle === 'casual' ? '- 「だ・である」調の常体で統一する' : '- 元の話し方の敬語レベルを保持する'}
 
 出力形式：
 ${summaryLevel === 0 ? '原文の内容をほぼそのまま残し、' : '重要な部分のみを選択し、'}行頭にタイムスタンプを付けて出力してください。
@@ -200,6 +203,7 @@ ${summaryLevel === 0 ? '原文の内容をほぼそのまま残し、' : '重要
 要約レベル: ${summaryLevel} (${config.description})
 文字数制限: 1行最大${maxCharsPerLine}文字
 行数制限: 同時表示最大${maxLines}行
+敬語設定: ${politeStyle === 'polite' ? 'です・ます調（丁寧語）' : politeStyle === 'casual' ? 'だ・である調（常体）' : '元の調子を保持'}
 
 以下のルールに従ってください：
 ${summaryLevel === 0 ? 
@@ -217,6 +221,7 @@ ${summaryLevel === 0 ?
 - 1行は必ず${maxCharsPerLine}文字以内に収める
 - 同時に表示するのは最大${maxLines}行まで
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
+${politeStyle === 'polite' ? '- 「です・ます」調の丁寧語で統一する' : politeStyle === 'casual' ? '- 「だ・である」調の常体で統一する' : '- 元の話し方の敬語レベルを保持する'}
 
 出力形式：
 各行を改行で区切って出力してください。各行は${maxCharsPerLine}文字以内にしてください。`

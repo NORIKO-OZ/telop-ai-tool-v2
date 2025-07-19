@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface ReplaceRule {
   id: string
@@ -19,6 +19,12 @@ export default function BulkReplacePanel({ originalText, onTextChange, onSaveToD
   const [previewText, setPreviewText] = useState(originalText)
   const [newRuleFrom, setNewRuleFrom] = useState('')
   const [newRuleTo, setNewRuleTo] = useState('')
+
+  // originalTextが変更されたらpreviewTextも更新
+  useEffect(() => {
+    setPreviewText(originalText)
+    setReplaceRules([])
+  }, [originalText])
 
   const createRule = (from: string, to: string): ReplaceRule => ({
     id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -72,10 +78,19 @@ export default function BulkReplacePanel({ originalText, onTextChange, onSaveToD
   }
 
   const applyAndSaveToDictionary = () => {
-    if (onSaveToDictionary && replaceRules.length > 0) {
+    if (replaceRules.length === 0) return
+    
+    // 先に辞書に保存
+    if (onSaveToDictionary) {
       onSaveToDictionary(replaceRules)
     }
-    applyReplacements()
+    
+    // その後でテキストに適用
+    onTextChange(previewText)
+    
+    // ルールをクリア（適用されたテキストが新しい原文になる）
+    setReplaceRules([])
+    // 注意: previewTextは親コンポーネントで更新されたテキストに基づいて更新される
   }
 
   const resetPreview = () => {

@@ -34,6 +34,7 @@ function MainApp() {
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [maxCharsPerLine, setMaxCharsPerLine] = useState(20)
   const [maxLines, setMaxLines] = useState(2)
+  const [politeStyle, setPoliteStyle] = useState<'auto' | 'polite' | 'casual'>('auto')
 
   useEffect(() => {
     // アクティブな辞書を読み込み
@@ -176,7 +177,8 @@ function MainApp() {
           summaryLevel, 
           userId,
           maxCharsPerLine,
-          maxLines
+          maxLines,
+          politeStyle
         }),
       })
       
@@ -588,6 +590,22 @@ function MainApp() {
                         </select>
                       </div>
                     </div>
+                  </div>
+
+                  {/* 敬語設定 */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      敬語設定
+                    </label>
+                    <select
+                      value={politeStyle}
+                      onChange={(e) => setPoliteStyle(e.target.value as 'auto' | 'polite' | 'casual')}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="auto">元の調子を保持</option>
+                      <option value="polite">です・ます調（丁寧語）</option>
+                      <option value="casual">だ・である調（常体）</option>
+                    </select>
                   </div>
                   
                   <button
