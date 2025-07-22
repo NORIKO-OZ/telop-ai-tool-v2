@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
           chunks: new Array(totalChunks),
           totalChunks,
           metadata: {
-            filename: formData.get('filename') || 'audio.mp3',
-            userId: formData.get('userId')
+            filename: (formData.get('filename') as string) || 'audio.mp3',
+            userId: formData.get('userId') as string
           }
         })
       }

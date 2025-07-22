@@ -313,7 +313,7 @@ function MainApp({ currentUserId }: MainAppProps) {
   }
 
   const handleTranscribe = async () => {
-    // Force rebuild: 2025-01-22 chunk upload fix
+    // CRITICAL FIX: Force rebuild 2025-01-22-v2 - chunk upload implementation
     if (!audioFile) return
     
     setIsLoading(true)

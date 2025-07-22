@@ -1,0 +1,11 @@
+FORCE REDEPLOY: 2025-01-22-v2
+
+This file exists solely to trigger a new Vercel deployment.
+The build cache seems to be stuck and not reflecting our changes.
+
+Expected behavior after this deployment:
+- JavaScript file name should change from page-b712194984257b58.js
+- "Using stream API" message should no longer appear
+- New chunk upload logic should be active
+
+Timestamp: 2025-01-22T15:30:00Z
