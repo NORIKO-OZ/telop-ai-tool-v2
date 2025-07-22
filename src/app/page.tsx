@@ -262,7 +262,7 @@ function MainApp({ currentUserId }: MainAppProps) {
   }
 
   // チャンクアップロード関数
-  const handleChunkUpload = async (file: File): Promise<any> => {
+  const handleChunkUpload = async (file: File): Promise<{transcription: string, segments?: Segment[], language?: string, duration?: number, method: string}> => {
     const CHUNK_SIZE = 1024 * 1024 // 1MB chunks
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -331,7 +331,7 @@ function MainApp({ currentUserId }: MainAppProps) {
       const fileSizeMB = audioFile.size / (1024 * 1024)
       console.log(`Transcription file size: ${fileSizeMB.toFixed(2)}MB`)
       
-      let data: any = null
+      let data: {transcription: string, segments?: Segment[], language?: string, duration?: number, method?: string} | null = null
       
       // APIの試行順序: 標準API → チャンクアップロード
       let uploadSucceeded = false

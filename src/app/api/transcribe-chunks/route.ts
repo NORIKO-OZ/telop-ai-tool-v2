@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // チャンクストレージ
-const chunkStorage = new Map<string, { chunks: Buffer[], totalChunks: number, metadata: any }>()
+const chunkStorage = new Map<string, { chunks: Buffer[], totalChunks: number, metadata: {filename: string, userId?: string} }>()
 
 export async function POST(request: NextRequest) {
   console.log('=== Chunk Upload API called ===')

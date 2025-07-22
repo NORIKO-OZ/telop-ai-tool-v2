@@ -9,14 +9,14 @@ const nextConfig = {
     }
   },
   serverExternalPackages: ['sharp', 'onnxruntime-node'],
+  // Force cache busting
+  generateBuildId: async () => {
+    return `build-${Date.now()}`
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb'
     }
-  },
-  // Force cache busting
-  generateBuildId: async () => {
-    return `build-${Date.now()}`
   },
   // Headers for all API routes
   async headers() {
