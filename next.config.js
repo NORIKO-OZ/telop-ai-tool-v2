@@ -14,6 +14,10 @@ const nextConfig = {
       bodySizeLimit: '50mb'
     }
   },
+  // Force cache busting
+  generateBuildId: async () => {
+    return `build-${Date.now()}`
+  },
   // Headers for all API routes
   async headers() {
     return [
