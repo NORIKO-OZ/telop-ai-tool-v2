@@ -9,14 +9,23 @@ const nextConfig = {
     }
   },
   serverExternalPackages: ['sharp', 'onnxruntime-node'],
-  // Force cache busting
+  // Force cache busting with multiple strategies
   generateBuildId: async () => {
-    return `build-${Date.now()}`
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(7)
+    return `build-${timestamp}-${random}`
   },
+  // Disable all caching
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb'
-    }
+    },
+    optimizeCss: false
+  },
+  // Force recompilation
+  webpack: (config, { isServer }) => {
+    config.cache = false
+    return config
   },
   // Headers for all API routes
   async headers() {
