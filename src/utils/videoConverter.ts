@@ -1,8 +1,13 @@
 class VideoConverter {
   // 最適化された音声抽出（短時間でサンプリング）
-  async extractAudioFromVideo(videoFile: File): Promise<File> {
+  async extractAudioFromVideo(videoFile: File, signal?: AbortSignal): Promise<File> {
     try {
       return new Promise((resolve, reject) => {
+        // 中止シグナルのチェック
+        if (signal?.aborted) {
+          reject(new Error('Operation was aborted'));
+          return;
+        }
         const video = document.createElement('video');
         const url = URL.createObjectURL(videoFile);
         
@@ -10,8 +15,27 @@ class VideoConverter {
         video.muted = true;
         video.preload = 'metadata'; // メタデータのみ先読み
         
+        // 中止シグナルのリスナーを追加
+        const abortHandler = () => {
+          if (video) {
+            video.pause();
+            URL.revokeObjectURL(url);
+          }
+          reject(new Error('Operation was aborted'));
+        };
+        
+        signal?.addEventListener('abort', abortHandler);
+
         video.onloadedmetadata = async () => {
           try {
+            // 中止チェック
+            if (signal?.aborted) {
+              signal.removeEventListener('abort', abortHandler);
+              URL.revokeObjectURL(url);
+              reject(new Error('Operation was aborted'));
+              return;
+            }
+            
             console.log(`Video duration: ${video.duration} seconds`);
             
             // 動画全体を処理（クレジット制限で管理）
@@ -43,6 +67,13 @@ class VideoConverter {
             };
             
             mediaRecorder.onstop = () => {
+              signal?.removeEventListener('abort', abortHandler);
+              if (signal?.aborted) {
+                URL.revokeObjectURL(url);
+                reject(new Error('Operation was aborted'));
+                return;
+              }
+              
               const audioBlob = new Blob(chunks, { type: 'audio/webm' });
               const audioFile = new File([audioBlob], `${videoFile.name.replace(/\.[^/.]+$/, '')}.webm`, {
                 type: 'audio/webm',
@@ -53,6 +84,7 @@ class VideoConverter {
             };
             
             mediaRecorder.onerror = (error) => {
+              signal?.removeEventListener('abort', abortHandler);
               URL.revokeObjectURL(url);
               reject(error);
             };
@@ -76,12 +108,14 @@ class VideoConverter {
             };
             
           } catch (error) {
+            signal?.removeEventListener('abort', abortHandler);
             URL.revokeObjectURL(url);
             reject(error);
           }
         };
         
         video.onerror = () => {
+          signal?.removeEventListener('abort', abortHandler);
           URL.revokeObjectURL(url);
           reject(new Error('Video loading failed'));
         };
@@ -93,11 +127,11 @@ class VideoConverter {
   }
 
   // 代替手段：Web Audio APIを使用したシンプルな音声抽出
-  async extractAudioSimple(videoFile: File): Promise<File> {
+  async extractAudioSimple(videoFile: File, signal?: AbortSignal): Promise<File> {
     try {
       // 動画ファイルを直接Web Audio APIで処理するのは困難なため、
       // 実際にはブラウザで動画を再生して音声を録音する方法を使用
-      return await this.extractAudioFromVideo(videoFile);
+      return await this.extractAudioFromVideo(videoFile, signal);
     } catch (error) {
       console.error('Simple audio extraction failed:', error);
       throw error;
@@ -105,9 +139,9 @@ class VideoConverter {
   }
 
   // メインの変換メソッド
-  async convertMP4ToMP3(videoFile: File): Promise<File> {
+  async convertMP4ToMP3(videoFile: File, signal?: AbortSignal): Promise<File> {
     try {
-      return await this.extractAudioFromVideo(videoFile);
+      return await this.extractAudioFromVideo(videoFile, signal);
     } catch (error) {
       console.error('MP4 to MP3 conversion failed:', error);
       throw error;

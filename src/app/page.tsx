@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { videoConverter } from '@/utils/videoConverter'
-import { DictionaryStorage } from '@/utils/dictionaryStorage'
+import { DictionaryStorageRedis } from '@/utils/dictionaryStorageRedis'
 import DictionaryManager from '@/components/DictionaryManager'
 import BulkReplacePanel from '@/components/BulkReplacePanel'
 import AccessControl from '@/components/AccessControl'
 import AdminPanel from '@/components/AdminPanel'
-import { UserManager } from '@/utils/userManager'
 
 interface Segment {
   start: number
@@ -15,7 +14,11 @@ interface Segment {
   text: string
 }
 
-function MainApp() {
+interface MainAppProps {
+  currentUserId?: string
+}
+
+function MainApp({ currentUserId }: MainAppProps) {
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [transcription, setTranscription] = useState<string>('')
   const [segments, setSegments] = useState<Segment[]>([])
@@ -24,35 +27,95 @@ function MainApp() {
   const [isConverting, setIsConverting] = useState(false)
   const [step, setStep] = useState<'upload' | 'convert' | 'transcribe' | 'rewrite'>('upload')
   const [showOriginalText, setShowOriginalText] = useState(false)
-  const [summaryLevel, setSummaryLevel] = useState<0 | 1 | 2 | 3>(2)
+  const [summaryLevel, setSummaryLevel] = useState<0 | 1 | 2 | 3>(1)
   const [showDictionaryManager, setShowDictionaryManager] = useState(false)
   const [activeDictionaries, setActiveDictionaries] = useState<string[]>([])
   const [appliedTermsCount, setAppliedTermsCount] = useState(0)
   const [showBulkReplace, setShowBulkReplace] = useState(false)
   const [originalRewrittenText, setOriginalRewrittenText] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [maxCharsPerLine, setMaxCharsPerLine] = useState(20)
   const [maxLines, setMaxLines] = useState(2)
   const [politeStyle, setPoliteStyle] = useState<'auto' | 'polite' | 'casual'>('auto')
+  const [processingStatus, setProcessingStatus] = useState<'idle' | 'converting' | 'transcribing' | 'generating' | 'completed'>('idle')
+  const [progressPercent, setProgressPercent] = useState(0)
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
 
-  useEffect(() => {
-    // アクティブな辞書を読み込み
-    setActiveDictionaries(DictionaryStorage.getActiveDictionaries())
-    
-    // ローカルストレージからユーザーIDを取得
-    const storedUserId = localStorage.getItem('telop-userId')
-    setUserId(storedUserId)
-  }, [])
-
-  const handleDictionariesChange = () => {
-    setActiveDictionaries(DictionaryStorage.getActiveDictionaries())
+  const getStatusMessage = () => {
+    switch (processingStatus) {
+      case 'converting': return '動画変換中...'
+      case 'transcribing': return '音声認識中...'
+      case 'generating': return 'テロップ生成中...'
+      case 'completed': return '✅ 完了'
+      default: return null
+    }
   }
 
-  const applyDictionaries = (text: string): string => {
-    const result = DictionaryStorage.applyDictionaries(text, activeDictionaries)
+  useEffect(() => {
+    const initializeUser = async () => {
+      // propsまたはローカルストレージからユーザーIDを取得
+      const finalUserId = currentUserId || localStorage.getItem('telop-userId')
+      console.log('🔧 useEffect userId check:', { currentUserId, localStorage: localStorage.getItem('telop-userId'), finalUserId })
+      setUserId(finalUserId)
+      
+      if (finalUserId) {
+        // アクティブな辞書を読み込み
+        const activeDicts = await DictionaryStorageRedis.getActiveDictionaries(finalUserId)
+        setActiveDictionaries(activeDicts)
+        
+        // 管理者チェック
+        fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'isAdmin', userId: finalUserId })
+        })
+        .then(r => r.json())
+        .then(result => setIsAdmin(result.isAdmin || false))
+        .catch(() => setIsAdmin(false))
+      } else {
+        setIsAdmin(false)
+        setActiveDictionaries([])
+      }
+    }
+    
+    initializeUser()
+  }, [currentUserId])
+
+  const handleDictionariesChange = async () => {
+    if (userId) {
+      const activeDicts = await DictionaryStorageRedis.getActiveDictionaries(userId)
+      setActiveDictionaries(activeDicts)
+    }
+  }
+
+  const applyDictionaries = async (text: string): Promise<string> => {
+    if (!userId) return text
+    
+    const result = await DictionaryStorageRedis.applyDictionaries(userId, text, activeDictionaries)
     setAppliedTermsCount(result.appliedTerms.length)
     return result.text
+  }
+
+  // ファイル時間取得ヘルパー関数
+  const getFileDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const isVideo = file.type.startsWith('video/')
+      const element = isVideo ? document.createElement('video') : document.createElement('audio')
+      
+      element.preload = 'metadata'
+      element.onloadedmetadata = () => {
+        URL.revokeObjectURL(element.src)
+        resolve(element.duration)
+      }
+      element.onerror = () => {
+        URL.revokeObjectURL(element.src)
+        reject(new Error('メディアファイルの読み込みに失敗しました'))
+      }
+      
+      element.src = URL.createObjectURL(file)
+    })
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,6 +132,76 @@ function MainApp() {
     if (file) {
       console.log('File uploaded:', file.name, file.type, file.size)
       
+      // ファイルサイズチェック（OpenAI Whisper API 25MB制限）
+      const fileSizeMB = file.size / (1024 * 1024)
+      console.log(`File size check: ${fileSizeMB.toFixed(2)}MB`)
+      
+      if (fileSizeMB > 25) {
+        alert(`ファイルサイズが大きすぎます\n\n現在のファイル: ${fileSizeMB.toFixed(1)}MB\n制限サイズ: 25MB\n\nより小さなファイルをアップロードしてください。`)
+        event.target.value = ''
+        return
+      }
+      
+      // 大きなファイル（5MB以上）への警告
+      if (fileSizeMB > 5) {
+        const proceed = confirm(`大きなファイルです (${fileSizeMB.toFixed(1)}MB)\n\nアップロードに時間がかかる可能性があります。\n続行しますか？`)
+        if (!proceed) {
+          event.target.value = ''
+          return
+        }
+      }
+      
+      try {
+        // ファイル時間をチェック
+        const durationSeconds = await getFileDuration(file)
+        const durationMinutes = durationSeconds / 60
+        
+        console.log(`File duration: ${durationMinutes.toFixed(2)} minutes, File size: ${fileSizeMB.toFixed(1)}MB`)
+        
+        // 時間制限チェック（30分制限）
+        if (durationMinutes > 30) {
+          const currentTime = `${Math.floor(durationMinutes)}分${Math.floor((durationMinutes % 1) * 60)}秒`
+          alert(`ファイルの時間が制限を超えています\n\n現在のファイル: ${currentTime}\n制限時間: 30分\n\n30分以内のファイルをアップロードしてください。`)
+          event.target.value = ''
+          return
+        }
+        
+        // ユーザー固有の制限チェック（ログイン済みかつRedis利用可能な場合）
+        if (userId) {
+          try {
+            const response = await fetch('/api/check-duration', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                userId, 
+                durationMinutes: durationMinutes 
+              })
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              
+              if (!result.canUpload) {
+                alert(result.reason || 'ファイルの時間が制限を超えています')
+                event.target.value = ''
+                return
+              }
+            } else {
+              // Redis接続エラーの場合は基本制限のみ適用して続行
+              console.warn('User-specific duration check failed, using basic 30min limit only')
+            }
+          } catch (error) {
+            // エラーが発生した場合は基本制限のみ適用して続行
+            console.warn('Duration check API error:', error)
+          }
+        }
+      } catch (error) {
+        console.error('Duration check failed:', error)
+        alert('ファイルの時間取得に失敗しました')
+        event.target.value = ''
+        return
+      }
+      
       // ファイルタイプの判定を拡張
       const isVideoFile = file.type.startsWith('video/') || 
                          file.name.toLowerCase().endsWith('.mp4') ||
@@ -79,26 +212,47 @@ function MainApp() {
       
       if (isVideoFile) {
         console.log('Video file detected, starting conversion...')
+        const controller = new AbortController()
+        setAbortController(controller)
         setIsConverting(true)
         setStep('convert')
+        setProcessingStatus('converting')
+        setProgressPercent(10)
+        
         try {
-          const convertedAudio = await videoConverter.convertMP4ToMP3(file)
-          setAudioFile(convertedAudio)
-          console.log('Video conversion successful')
+          const convertedAudio = await videoConverter.convertMP4ToMP3(file, controller.signal)
+          if (!controller.signal.aborted) {
+            setAudioFile(convertedAudio)
+            console.log('Video conversion successful')
+          }
         } catch (error) {
-          console.error('Video conversion failed:', error)
-          // フォールバック: 簡単な音声抽出を試行
-          try {
-            const extractedAudio = await videoConverter.extractAudioSimple(file)
-            setAudioFile(extractedAudio)
-            console.log('Fallback audio extraction successful')
-          } catch (fallbackError) {
-            console.error('Audio extraction failed:', fallbackError)
-            alert('動画ファイルの変換に失敗しました。音声ファイルを直接アップロードしてください。')
+          if (controller.signal.aborted) {
+            console.log('Video conversion aborted by user')
+            alert('動画変換がキャンセルされました。')
+          } else {
+            console.error('Video conversion failed:', error)
+            // フォールバック: 簡単な音声抽出を試行
+            try {
+              const extractedAudio = await videoConverter.extractAudioSimple(file, controller.signal)
+              if (!controller.signal.aborted) {
+                setAudioFile(extractedAudio)
+                console.log('Fallback audio extraction successful')
+              }
+            } catch (fallbackError) {
+              console.error('Audio extraction failed:', fallbackError)
+              if (!controller.signal.aborted) {
+                alert('動画ファイルの変換に失敗しました。音声ファイルを直接アップロードしてください。')
+              }
+            }
           }
         } finally {
           setIsConverting(false)
+          setAbortController(null)
           setStep('upload')
+          if (processingStatus === 'converting') {
+            setProcessingStatus('idle')
+            setProgressPercent(0)
+          }
         }
       } else {
         console.log('Audio file detected, using directly')
@@ -107,36 +261,147 @@ function MainApp() {
     }
   }
 
+  // チャンクアップロード関数
+  const handleChunkUpload = async (file: File): Promise<any> => {
+    const CHUNK_SIZE = 1024 * 1024 // 1MB chunks
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+    const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    console.log(`🔄 Starting chunk upload: ${totalChunks} chunks for ${file.name}`)
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE
+      const end = Math.min(start + CHUNK_SIZE, file.size)
+      const chunk = file.slice(start, end)
+      
+      console.log(`📤 Uploading chunk ${i + 1}/${totalChunks} (${chunk.size} bytes)`)
+      
+      const formData = new FormData()
+      formData.append('action', 'upload-chunk')
+      formData.append('uploadId', uploadId)
+      formData.append('chunkIndex', i.toString())
+      formData.append('totalChunks', totalChunks.toString())
+      formData.append('chunk', chunk)
+      formData.append('filename', file.name)
+      if (userId) {
+        formData.append('userId', userId)
+      }
+      
+      const response = await fetch('/api/transcribe-chunks', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Chunk upload failed: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      // 全チャンクが完了した場合は結果を返す
+      if (result.transcription) {
+        console.log('✅ Chunk upload and transcription completed')
+        return result
+      }
+      
+      // プログレス更新
+      const chunkProgress = ((i + 1) / totalChunks) * 60 // 60%まで
+      setProgressPercent(20 + chunkProgress)
+    }
+    
+    throw new Error('Chunk upload completed but no transcription received')
+  }
+
   const handleTranscribe = async () => {
     if (!audioFile) return
     
     setIsLoading(true)
     setStep('transcribe')
+    setProcessingStatus('transcribing')
+    setProgressPercent(20)
     
     try {
       console.log('Starting transcription for file:', audioFile.name, audioFile.type)
-      const formData = new FormData()
-      formData.append('audio', audioFile)
-      if (userId) {
-        formData.append('userId', userId)
+      console.log('🔍 Client-side userId check:', userId)
+      console.log('🔍 localStorage userId:', localStorage.getItem('telop-userId'))
+      console.log('🔍 localStorage auth:', localStorage.getItem('telop-auth'))
+      
+      // ファイルサイズを再計算
+      const fileSizeMB = audioFile.size / (1024 * 1024)
+      console.log(`Transcription file size: ${fileSizeMB.toFixed(2)}MB`)
+      
+      let data: any = null
+      
+      // APIの試行順序: 標準API → チャンクアップロード
+      let uploadSucceeded = false
+      
+      // 1. 標準APIを試行
+      if (!uploadSucceeded) {
+        try {
+          const formData = new FormData()
+          formData.append('audio', audioFile)
+          if (userId) {
+            console.log('✅ Adding userId to formData:', userId)
+            formData.append('userId', userId)
+          } else {
+            console.log('❌ No userId to add to formData')
+          }
+          
+          console.log('FormData details:', Array.from(formData.entries()).map(([key, value]) => 
+            [key, typeof value === 'string' ? value : `File(${(value as File).name}, ${(value as File).size} bytes)`]
+          ))
+          
+          console.log(`🔄 Trying standard API for ${fileSizeMB.toFixed(1)}MB file`)
+          
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData
+          })
+          
+          console.log('Standard API response status:', response.status)
+          
+          if (response.ok) {
+            data = await response.json()
+            console.log('✅ Standard API succeeded')
+            uploadSucceeded = true
+          } else if (response.status === 413) {
+            console.log('❌ Standard API failed with 413')
+          } else {
+            let errorMessage = `HTTP error! status: ${response.status}`
+            try {
+              const errorData = await response.json()
+              console.log('Error response data:', errorData)
+              errorMessage = errorData.error || errorMessage
+            } catch {
+              console.log('Failed to parse error response as JSON')
+            }
+            throw new Error(errorMessage)
+          }
+        } catch (error) {
+          if (error instanceof Error && !error.message.includes('413')) {
+            throw error
+          }
+          console.log('Standard API failed, will try chunk upload')
+        }
       }
       
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      })
-      
-      console.log('Transcription response status:', response.status)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      // 2. 標準APIが失敗した場合、チャンクアップロードを試行
+      if (!uploadSucceeded) {
+        try {
+          console.log('🔄 Switching to chunk upload method')
+          data = await handleChunkUpload(audioFile)
+          uploadSucceeded = true
+        } catch (error) {
+          console.error('Chunk upload also failed:', error)
+          throw error
+        }
       }
       
-      const data = await response.json()
       console.log('Transcription response data:', data)
       
       if (data.transcription) {
         setTranscription(data.transcription)
+        setProgressPercent(80)
         if (data.segments) {
           setSegments(data.segments)
           console.log('Segments received:', data.segments.length)
@@ -155,11 +420,15 @@ function MainApp() {
       alert(`文字起こしエラー: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setIsLoading(false)
       setStep('upload')
+      setProcessingStatus('idle')
+      setProgressPercent(0)
     }
   }
 
   const handleRewrite = async (text: string, segmentsData?: Segment[]) => {
     setStep('rewrite')
+    setProcessingStatus('generating')
+    setProgressPercent(80)
     
     try {
       console.log('Starting text rewrite for:', text.substring(0, 100) + '...')
@@ -193,10 +462,18 @@ function MainApp() {
       
       if (data.rewrittenText) {
         // 辞書を適用してテロップテキストを修正
-        const processedText = applyDictionaries(data.rewrittenText)
+        const processedText = await applyDictionaries(data.rewrittenText)
         setOriginalRewrittenText(processedText) // 元のテキストを保存
         setRewrittenText(processedText)
         setShowBulkReplace(false) // 新しい結果が来たら置換パネルを閉じる
+        setProcessingStatus('completed')
+        setProgressPercent(100)
+        
+        // 3秒後に完了表示をクリア
+        setTimeout(() => {
+          setProcessingStatus('idle')
+          setProgressPercent(0)
+        }, 3000)
       } else if (data.error) {
         console.error('Rewrite server error details:', data.details)
         throw new Error(`${data.error}${data.details ? ': ' + data.details : ''}`)
@@ -208,10 +485,30 @@ function MainApp() {
       alert(`テロップ変換エラー: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
+      // エラーの場合のみリセット（成功時はcompletedのまま保持）
+      if (processingStatus === 'generating') {
+        setProcessingStatus('idle')
+        setProgressPercent(0)
+      }
+    }
+  }
+
+  const handleAbort = () => {
+    if (abortController) {
+      abortController.abort()
+      setIsConverting(false)
+      setAbortController(null)
+      setStep('upload')
+      setProcessingStatus('idle')
+      setProgressPercent(0)
     }
   }
 
   const handleReset = () => {
+    // 進行中の処理がある場合は中止
+    if (abortController) {
+      handleAbort()
+    }
     setAudioFile(null)
     setTranscription('')
     setSegments([])
@@ -221,6 +518,8 @@ function MainApp() {
     setShowOriginalText(false)
     setAppliedTermsCount(0)
     setShowBulkReplace(false)
+    setProcessingStatus('idle')
+    setProgressPercent(0)
   }
 
   const handleBulkReplaceTextChange = (newText: string) => {
@@ -228,10 +527,12 @@ function MainApp() {
     setShowBulkReplace(false)
   }
 
-  const handleSaveToDictionary = (rules: { id: string, from: string, to: string }[]) => {
+  const handleSaveToDictionary = async (rules: { id: string, from: string, to: string }[]) => {
+    if (!userId) return
+    
     // アクティブな辞書があれば最初の辞書に保存、なければ新規作成
-    const dictionaries = DictionaryStorage.getDictionaries()
-    const activeDictionaries = DictionaryStorage.getActiveDictionaries()
+    const dictionaries = await DictionaryStorageRedis.getDictionaries(userId)
+    const activeDictionaries = await DictionaryStorageRedis.getActiveDictionaries(userId)
     
     let targetDictionary = null
     if (activeDictionaries.length > 0) {
@@ -240,21 +541,21 @@ function MainApp() {
     
     if (!targetDictionary) {
       // 新規辞書を作成
-      const newDict = DictionaryStorage.createDictionary('クイック置換から追加')
-      DictionaryStorage.addDictionary(newDict)
+      const newDict = DictionaryStorageRedis.createDictionary('クイック置換から追加')
+      await DictionaryStorageRedis.addDictionary(userId, newDict)
       targetDictionary = newDict
     }
     
     // 用語を追加
     const newTerms = rules.map(rule => 
-      DictionaryStorage.createTerm(rule.from, rule.to)
+      DictionaryStorageRedis.createTerm(rule.from, rule.to)
     )
     
     const updatedTerms = [...targetDictionary.terms, ...newTerms]
-    DictionaryStorage.updateDictionary(targetDictionary.id, { terms: updatedTerms })
+    await DictionaryStorageRedis.updateDictionary(userId, targetDictionary.id, { terms: updatedTerms })
     
     // アクティブ辞書リストを更新
-    handleDictionariesChange()
+    await handleDictionariesChange()
     
     alert(`${rules.length}個の用語を辞書に保存しました`)
   }
@@ -396,7 +697,7 @@ function MainApp() {
                 </svg>
                 <span>用語辞書</span>
             </button>
-            {userId && UserManager.isAdmin(userId) && (
+            {userId && isAdmin && (
               <button
                 onClick={() => setShowAdminPanel(true)}
                 className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
@@ -483,9 +784,14 @@ function MainApp() {
                       {isLoading || isConverting ? '処理中...' : '音声・動画ファイルをドラッグ&ドロップまたはクリック'}
                     </span>
                     {!isLoading && !isConverting && (
-                      <span className="text-sm text-gray-500 mt-2">
-                        対応形式: MP3, WAV, M4A, MP4, MOV, AVI等
-                      </span>
+                      <div className="text-center mt-2">
+                        <span className="text-sm text-gray-500 block">
+                          対応形式: MP3, WAV, M4A, MP4, MOV, AVI等
+                        </span>
+                        <span className="text-sm text-blue-600 font-medium block mt-1">
+                          ⏱️ 最大30分まで
+                        </span>
+                      </div>
                     )}
                     {(isLoading || isConverting) && (
                       <span className="text-sm text-orange-500 mt-2">
@@ -607,13 +913,45 @@ function MainApp() {
                       <option value="casual">だ・である調（常体）</option>
                     </select>
                   </div>
+
+                  {/* ステータス表示とプログレスバー */}
+                  {processingStatus !== 'idle' && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          {getStatusMessage()}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500">
+                            {progressPercent}%
+                          </span>
+                          {processingStatus === 'converting' && abortController && (
+                            <button
+                              onClick={handleAbort}
+                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                            >
+                              中止
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            processingStatus === 'completed' ? 'bg-green-500' : 'bg-blue-600'
+                          }`}
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                   
                   <button
                     onClick={handleTranscribe}
                     disabled={isLoading || isConverting}
                     className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {isConverting ? '動画変換中...' : isLoading ? '処理中...' : '文字起こし開始'}
+                    {getStatusMessage() || '文字起こし開始'}
                   </button>
                 </div>
               )}
@@ -741,6 +1079,7 @@ function MainApp() {
         isOpen={showDictionaryManager}
         onClose={() => setShowDictionaryManager(false)}
         onDictionariesChange={handleDictionariesChange}
+        userId={userId || undefined}
       />
 
       {/* 管理者パネル */}

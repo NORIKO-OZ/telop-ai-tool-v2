@@ -1,7 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { UserManager, User } from '@/utils/userManager'
+import React, { useState, useEffect } from 'react'
+
+interface User {
+  id: string
+  name: string
+  role: 'admin' | 'user'
+  active: boolean
+  limits: {
+    dailyRequests: number
+    monthlyRequests: number
+    monthlyCredits: number
+    maxFileSize: number
+  }
+  usage: {
+    totalRequests: number
+    dailyRequests: number
+    monthlyRequests: number
+    monthlyCreditsUsed: number
+    lastRequestDate: string | null
+    lastResetDate: string | null
+  }
+}
 
 interface AccessControlProps {
   children: React.ReactNode
@@ -17,24 +37,45 @@ export default function AccessControl({ children }: AccessControlProps) {
 
   useEffect(() => {
     // ローカルストレージから認証状態を確認
-    const authStatus = localStorage.getItem('telop-auth')
-    const storedUserId = localStorage.getItem('telop-userId')
-    
-    if (authStatus === 'authenticated' && storedUserId) {
-      const user = UserManager.getUser(storedUserId)
-      if (user && user.active) {
-        setIsAuthenticated(true)
-        setCurrentUser(user)
-        setUserId(storedUserId)
-      } else {
-        localStorage.removeItem('telop-auth')
-        localStorage.removeItem('telop-userId')
+    const checkAuth = async () => {
+      const authStatus = localStorage.getItem('telop-auth')
+      const storedUserId = localStorage.getItem('telop-userId')
+      
+      if (authStatus === 'authenticated' && storedUserId) {
+        console.log('🔍 AccessControl: Checking stored user:', storedUserId)
+        
+        try {
+          const response = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'getUser', userId: storedUserId })
+          })
+          
+          const result = await response.json()
+          console.log('🔍 AccessControl: User found:', result.user ? `${result.user.name} (${result.user.active ? 'active' : 'inactive'})` : 'null')
+          
+          if (result.success && result.user && result.user.active) {
+            setIsAuthenticated(true)
+            setCurrentUser(result.user)
+            setUserId(storedUserId)
+          } else {
+            console.log('❌ AccessControl: User not found or inactive, clearing localStorage')
+            localStorage.removeItem('telop-auth')
+            localStorage.removeItem('telop-userId')
+          }
+        } catch (error) {
+          console.error('AccessControl: Auth check error:', error)
+          localStorage.removeItem('telop-auth')
+          localStorage.removeItem('telop-userId')
+        }
       }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+    
+    checkAuth()
   }, [])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!userId.trim()) {
@@ -42,16 +83,31 @@ export default function AccessControl({ children }: AccessControlProps) {
       return
     }
     
-    const user = UserManager.authenticate(userId, password)
+    console.log('🔍 Login attempt:', userId)
     
-    if (user) {
-      setIsAuthenticated(true)
-      setCurrentUser(user)
-      localStorage.setItem('telop-auth', 'authenticated')
-      localStorage.setItem('telop-userId', userId)
-      setError('')
-    } else {
-      setError('ユーザーIDまたはパスワードが間違っています')
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'authenticate', userId, password })
+      })
+      
+      const result = await response.json()
+      console.log('🔍 Authentication result:', result.user ? `${result.user.name} (${result.user.active ? 'active' : 'inactive'})` : 'null')
+      
+      if (result.success && result.user) {
+        setIsAuthenticated(true)
+        setCurrentUser(result.user)
+        localStorage.setItem('telop-auth', 'authenticated')
+        localStorage.setItem('telop-userId', userId)
+        setError('')
+      } else {
+        setError('ユーザーIDまたはパスワードが間違っています')
+        setPassword('')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      setError('ログインエラーが発生しました')
       setPassword('')
     }
   }
@@ -166,7 +222,7 @@ export default function AccessControl({ children }: AccessControlProps) {
       
       {/* メインコンテンツ */}
       <div className="min-h-screen bg-gray-900">
-        {children}
+        {React.cloneElement(children as React.ReactElement, { currentUserId: userId })}
       </div>
     </div>
   )

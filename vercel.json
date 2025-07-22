@@ -1,14 +1,14 @@
 {
   "functions": {
-    "src/app/api/**/*.ts": {
+    "src/app/api/transcribe/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/transcribe-chunks/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/transcribe-stream/route.ts": {
       "maxDuration": 300
     }
   },
-  "regions": ["hnd1"],
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/"
-    }
-  ]
+  "regions": ["hnd1"]
 }

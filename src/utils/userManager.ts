@@ -253,6 +253,10 @@ export class UserManager {
     user.usage.monthlyCreditsUsed += creditsToConsume
 
     console.log(`Credits consumed for ${userId}: ${creditsToConsume} (${audioLengthMinutes.toFixed(2)} minutes)`)
+    console.log(`User ${userId} current status: Used ${user.usage.monthlyCreditsUsed}/${user.limits.monthlyCredits} credits`)
+    
+    // ⚠️ 注意: サーバーレス環境ではメモリは永続化されません
+    // 本番環境ではデータベースまたは外部ストレージが必要
     return true
   }
 

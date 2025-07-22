@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { Dictionary, TermPair } from '@/types/dictionary'
-import { DictionaryStorage } from '@/utils/dictionaryStorage'
+import { DictionaryStorageRedis } from '@/utils/dictionaryStorageRedis'
 
 interface DictionaryManagerProps {
   isOpen: boolean
   onClose: () => void
   onDictionariesChange: () => void
+  userId?: string
 }
 
-export default function DictionaryManager({ isOpen, onClose, onDictionariesChange }: DictionaryManagerProps) {
+export default function DictionaryManager({ isOpen, onClose, onDictionariesChange, userId }: DictionaryManagerProps) {
   const [dictionaries, setDictionaries] = useState<Dictionary[]>([])
   const [activeDictionaries, setActiveDictionaries] = useState<string[]>([])
   const [selectedDictionary, setSelectedDictionary] = useState<Dictionary | null>(null)
@@ -21,65 +22,75 @@ export default function DictionaryManager({ isOpen, onClose, onDictionariesChang
   const [editingTerm, setEditingTerm] = useState<TermPair | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && userId) {
       loadDictionaries()
     }
-  }, [isOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, userId])
 
-  const loadDictionaries = () => {
-    const dicts = DictionaryStorage.getDictionaries()
-    const activeDicts = DictionaryStorage.getActiveDictionaries()
-    setDictionaries(dicts)
-    setActiveDictionaries(activeDicts)
+  const loadDictionaries = async () => {
+    if (!userId) return
+    
+    try {
+      const dicts = await DictionaryStorageRedis.getDictionaries(userId)
+      const activeDicts = await DictionaryStorageRedis.getActiveDictionaries(userId)
+      setDictionaries(dicts)
+      setActiveDictionaries(activeDicts)
+    } catch (error) {
+      console.error('Failed to load dictionaries:', error)
+    }
   }
 
-  const handleCreateDictionary = () => {
-    if (!newDictName.trim()) return
+  const handleCreateDictionary = async () => {
+    if (!newDictName.trim() || !userId) return
 
-    const newDict = DictionaryStorage.createDictionary(newDictName.trim(), newDictDescription.trim())
-    DictionaryStorage.addDictionary(newDict)
+    const newDict = DictionaryStorageRedis.createDictionary(newDictName.trim(), newDictDescription.trim())
+    await DictionaryStorageRedis.addDictionary(userId, newDict)
     
     setNewDictName('')
     setNewDictDescription('')
-    loadDictionaries()
+    await loadDictionaries()
     onDictionariesChange()
   }
 
-  const handleDeleteDictionary = (id: string) => {
-    if (confirm('この辞書を削除しますか？')) {
-      DictionaryStorage.deleteDictionary(id)
-      if (selectedDictionary?.id === id) {
-        setSelectedDictionary(null)
-      }
-      loadDictionaries()
-      onDictionariesChange()
+  const handleDeleteDictionary = async (id: string) => {
+    if (!userId || !confirm('この辞書を削除しますか？')) return
+    
+    await DictionaryStorageRedis.deleteDictionary(userId, id)
+    if (selectedDictionary?.id === id) {
+      setSelectedDictionary(null)
     }
+    await loadDictionaries()
+    onDictionariesChange()
   }
 
-  const handleToggleActive = (id: string) => {
+  const handleToggleActive = async (id: string) => {
+    if (!userId) return
+    
     const newActiveDictionaries = activeDictionaries.includes(id)
       ? activeDictionaries.filter(dictId => dictId !== id)
       : [...activeDictionaries, id]
     
     setActiveDictionaries(newActiveDictionaries)
-    DictionaryStorage.setActiveDictionaries(newActiveDictionaries)
+    await DictionaryStorageRedis.setActiveDictionaries(userId, newActiveDictionaries)
     onDictionariesChange()
   }
 
-  const handleAddTerm = () => {
-    if (!selectedDictionary || !newTermFrom.trim() || !newTermTo.trim()) return
+  const handleAddTerm = async () => {
+    if (!selectedDictionary || !newTermFrom.trim() || !newTermTo.trim() || !userId) return
 
-    const newTerm = DictionaryStorage.createTerm(newTermFrom.trim(), newTermTo.trim())
+    const newTerm = DictionaryStorageRedis.createTerm(newTermFrom.trim(), newTermTo.trim())
     const updatedTerms = [...selectedDictionary.terms, newTerm]
     
-    DictionaryStorage.updateDictionary(selectedDictionary.id, { terms: updatedTerms })
+    await DictionaryStorageRedis.updateDictionary(userId, selectedDictionary.id, { terms: updatedTerms })
     
     setNewTermFrom('')
     setNewTermTo('')
-    loadDictionaries()
+    await loadDictionaries()
     
     // 選択中の辞書を更新
-    const updatedDict = DictionaryStorage.getDictionaries().find(d => d.id === selectedDictionary.id)
+    const dicts = await DictionaryStorageRedis.getDictionaries(userId)
+    const updatedDict = dicts.find(d => d.id === selectedDictionary.id)
     if (updatedDict) {
       setSelectedDictionary(updatedDict)
     }
@@ -92,8 +103,8 @@ export default function DictionaryManager({ isOpen, onClose, onDictionariesChang
     setNewTermTo(term.to)
   }
 
-  const handleUpdateTerm = () => {
-    if (!selectedDictionary || !editingTerm || !newTermFrom.trim() || !newTermTo.trim()) return
+  const handleUpdateTerm = async () => {
+    if (!selectedDictionary || !editingTerm || !newTermFrom.trim() || !newTermTo.trim() || !userId) return
 
     const updatedTerms = selectedDictionary.terms.map(term =>
       term.id === editingTerm.id
@@ -101,39 +112,43 @@ export default function DictionaryManager({ isOpen, onClose, onDictionariesChang
         : term
     )
     
-    DictionaryStorage.updateDictionary(selectedDictionary.id, { terms: updatedTerms })
+    await DictionaryStorageRedis.updateDictionary(userId, selectedDictionary.id, { terms: updatedTerms })
     
     setEditingTerm(null)
     setNewTermFrom('')
     setNewTermTo('')
-    loadDictionaries()
+    await loadDictionaries()
     
     // 選択中の辞書を更新
-    const updatedDict = DictionaryStorage.getDictionaries().find(d => d.id === selectedDictionary.id)
+    const dicts = await DictionaryStorageRedis.getDictionaries(userId)
+    const updatedDict = dicts.find(d => d.id === selectedDictionary.id)
     if (updatedDict) {
       setSelectedDictionary(updatedDict)
     }
     onDictionariesChange()
   }
 
-  const handleDeleteTerm = (termId: string) => {
-    if (!selectedDictionary) return
+  const handleDeleteTerm = async (termId: string) => {
+    if (!selectedDictionary || !userId) return
     
     const updatedTerms = selectedDictionary.terms.filter(term => term.id !== termId)
-    DictionaryStorage.updateDictionary(selectedDictionary.id, { terms: updatedTerms })
+    await DictionaryStorageRedis.updateDictionary(userId, selectedDictionary.id, { terms: updatedTerms })
     
-    loadDictionaries()
+    await loadDictionaries()
     
     // 選択中の辞書を更新
-    const updatedDict = DictionaryStorage.getDictionaries().find(d => d.id === selectedDictionary.id)
+    const dicts = await DictionaryStorageRedis.getDictionaries(userId)
+    const updatedDict = dicts.find(d => d.id === selectedDictionary.id)
     if (updatedDict) {
       setSelectedDictionary(updatedDict)
     }
     onDictionariesChange()
   }
 
-  const handleExportDictionary = (id: string) => {
-    const jsonData = DictionaryStorage.exportDictionary(id)
+  const handleExportDictionary = async (id: string) => {
+    if (!userId) return
+    
+    const jsonData = await DictionaryStorageRedis.exportDictionary(userId, id)
     if (jsonData) {
       const blob = new Blob([jsonData], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -149,13 +164,13 @@ export default function DictionaryManager({ isOpen, onClose, onDictionariesChang
 
   const handleImportDictionary = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file) return
+    if (!file || !userId) return
 
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const content = e.target?.result as string
-      if (DictionaryStorage.importDictionary(content)) {
-        loadDictionaries()
+      if (await DictionaryStorageRedis.importDictionary(userId, content)) {
+        await loadDictionaries()
         onDictionariesChange()
         alert('辞書をインポートしました')
       } else {

@@ -24,12 +24,13 @@
 - 音声ファイル：MP3, WAV, M4A, AAC, OGG
 - 動画ファイル：MP4, MOV, AVI, MKV, WebM
 - 自動音声抽出機能
+- **制限時間：最大30分まで**
 
 ## 🛠️ 技術スタック
 
 - **フロントエンド**: Next.js 15.3.5, TypeScript, Tailwind CSS
 - **AI API**: OpenAI Whisper & GPT-4
-- **ストレージ**: ローカルストレージ（辞書・設定）
+- **データベース**: Upstash Redis（ユーザー管理・辞書保存）
 - **音声処理**: Web Audio API, MediaRecorder
 - **デプロイ**: Vercel
 
@@ -38,6 +39,7 @@
 ### 必要な環境
 - Node.js 18.0以上
 - OpenAI API キー
+- Upstash Redis データベース
 
 ### インストール手順
 ```bash
@@ -50,7 +52,8 @@ npm install
 
 # 環境変数を設定
 cp .env.example .env.local
-# .env.localにOPENAI_API_KEYを設定
+# .env.localにOPENAI_API_KEY、UPSTASH_REDIS_REST_URL、UPSTASH_REDIS_REST_TOKENを設定
+# 詳細はREDIS_SETUP.mdを参照
 
 # 開発サーバーを起動
 npm run dev
@@ -60,7 +63,10 @@ npm run dev
 
 1. GitHubリポジトリにpush
 2. Vercelでインポート
-3. 環境変数 `OPENAI_API_KEY` を設定
+3. 環境変数を設定：
+   - `OPENAI_API_KEY`
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
 4. デプロイ完了
 
 ## 💡 使い方
@@ -87,7 +93,7 @@ npm run dev
 ## 📊 パフォーマンス
 
 - 1分の音声処理時間：約10-15秒
-- 対応ファイルサイズ：最大100MB
+- 対応ファイル時間：最大30分まで
 - 処理精度：専門用語対応で95%以上
 
 ## 🎯 対象ユーザー
@@ -101,7 +107,8 @@ npm run dev
 ## 🔒 セキュリティ・プライバシー
 
 - 音声データは一時的な処理のみ
-- 辞書データはローカルストレージに保存
+- 辞書データはUpstash Redisに暗号化保存
+- ユーザー管理システムによるアクセス制御
 - OpenAI APIの利用規約に準拠
 
 ## 📈 今後の予定

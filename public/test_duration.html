@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時間制限機能テスト</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 時間制限機能テスト</h1>
+    <p>このページでは30分時間制限機能をテストします。</p>
+    
+    <button onclick="runBasicTests()">基本テスト実行</button>
+    <button onclick="testFileTimeSimulation()">ファイル時間シミュレーション</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+
+        function log(message, isPass = null) {
+            const div = document.createElement('div');
+            div.className = 'test-case';
+            if (isPass === true) div.classList.add('pass');
+            if (isPass === false) div.classList.add('fail');
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        function clearResults() {
+            resultsDiv.innerHTML = '';
+        }
+
+        // 基本的な時間チェックロジックのテスト
+        function runBasicTests() {
+            clearResults();
+            log('🧪 基本テスト開始');
+
+            const testCases = [
+                { minutes: 25, expected: true, description: '25分 - 許可されるべき' },
+                { minutes: 30, expected: true, description: '30分 - 許可されるべき' },
+                { minutes: 30.5, expected: false, description: '30分30秒 - 拒否されるべき' },
+                { minutes: 45, expected: false, description: '45分 - 拒否されるべき' },
+                { minutes: 0.5, expected: true, description: '30秒 - 許可されるべき' },
+                { minutes: 60, expected: false, description: '60分 - 拒否されるべき' }
+            ];
+
+            testCases.forEach(testCase => {
+                const result = testCase.minutes <= 30;
+                const passed = result === testCase.expected;
+                
+                log(`${passed ? '✅' : '❌'} ${testCase.description} - ${result ? '許可' : '拒否'}`, passed);
+            });
+
+            log('🧪 基本テスト完了');
+        }
+
+        // ファイル時間表示のテスト
+        function testFileTimeSimulation() {
+            clearResults();
+            log('⏱️ ファイル時間表示テスト開始');
+
+            const testTimes = [29.5, 30.1, 45.7, 62.3];
+            
+            testTimes.forEach(durationMinutes => {
+                const currentTime = `${Math.floor(durationMinutes)}分${Math.floor((durationMinutes % 1) * 60)}秒`;
+                const wouldPass = durationMinutes <= 30;
+                
+                if (!wouldPass) {
+                    const message = `ファイルの時間が制限を超えています\n\n現在のファイル: ${currentTime}\n制限時間: 30分\n\n30分以内のファイルをアップロードしてください。`;
+                    log(`❌ ${durationMinutes}分のファイル: "${currentTime}" - エラーメッセージ確認`, false);
+                } else {
+                    log(`✅ ${durationMinutes}分のファイル: "${currentTime}" - 許可`, true);
+                }
+            });
+
+            log('⏱️ ファイル時間表示テスト完了');
+        }
+
+        // 実際のgetFileDuration関数をシミュレート
+        function simulateGetFileDuration(fakeDurationMinutes) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    resolve(fakeDurationMinutes * 60); // 秒に変換
+                }, 100);
+            });
+        }
+
+        // 実際のアップロード処理のシミュレーション
+        async function simulateFileUpload(fakeDurationMinutes) {
+            log(`📁 ${fakeDurationMinutes}分のファイルをシミュレート中...`);
+            
+            try {
+                const durationSeconds = await simulateGetFileDuration(fakeDurationMinutes);
+                const durationMinutes = durationSeconds / 60;
+                
+                console.log(`File duration: ${durationMinutes.toFixed(2)} minutes`);
+                
+                // 時間制限チェック（30分制限）
+                if (durationMinutes > 30) {
+                    const currentTime = `${Math.floor(durationMinutes)}分${Math.floor((durationMinutes % 1) * 60)}秒`;
+                    const errorMessage = `ファイルの時間が制限を超えています\n\n現在のファイル: ${currentTime}\n制限時間: 30分\n\n30分以内のファイルをアップロードしてください。`;
+                    log(`❌ 拒否: ${errorMessage}`, false);
+                    return false;
+                } else {
+                    log(`✅ 許可: ${durationMinutes.toFixed(2)}分のファイル`, true);
+                    return true;
+                }
+            } catch (error) {
+                log(`❌ エラー: ${error.message}`, false);
+                return false;
+            }
+        }
+
+        // 自動テスト実行
+        setTimeout(() => {
+            log('🚀 自動テスト開始');
+            runBasicTests();
+        }, 500);
+    </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { UserManager } from '@/utils/userManager'
+import { UserManagerRedis as UserManager } from '@/utils/userManagerRedis'
 
 export async function POST(request: NextRequest) {
   console.log('=== New Rewrite API called ===')
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // ユーザー認証と使用量チェック
     if (userId) {
-      const user = UserManager.getUser(userId)
+      const user = await UserManager.getUser(userId)
       
       if (!user || !user.active) {
         console.log('User not found or inactive:', userId)
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       }
       
       // 使用量制限チェック
-      const usageCheck = UserManager.checkUsageLimit(userId)
+      const usageCheck = await UserManager.checkUsageLimit(userId)
       if (!usageCheck.canUse) {
         console.log('Usage limit exceeded for user:', userId, usageCheck.reason)
         return NextResponse.json({ error: usageCheck.reason }, { status: 429 })
@@ -76,10 +76,32 @@ export async function POST(request: NextRequest) {
           summaryRatio = 0.5
       }
       
+      // 敬語設定の適用
+      const applyPoliteStyle = (text: string): string => {
+        if (politeStyle === 'polite') {
+          // 丁寧語に変換（簡易版）
+          return text
+            .replace(/だ$/, 'です')
+            .replace(/である$/, 'です')
+            .replace(/する$/, 'します')
+            .replace(/なる$/, 'なります')
+            .replace(/ない$/, 'ません')
+            .replace(/([^ま])す$/, '$1ます')
+        } else if (politeStyle === 'casual') {
+          // 常体に変換（簡易版）
+          return text
+            .replace(/です$/, 'だ')
+            .replace(/ます$/, 'る')
+            .replace(/ません$/, 'ない')
+        }
+        return text
+      }
+
       const keyPoints = sentences
         .filter((sentence: string) => sentence.length > 5) // 短すぎる文は除外
         .map((sentence: string) => sentence.trim())
         .slice(0, Math.ceil(sentences.length * summaryRatio))
+        .map((sentence: string) => applyPoliteStyle(sentence)) // 敬語設定適用
         .map((sentence: string) => sentence.substring(0, maxCharsPerLine))
         .map((sentence: string) => sentence.replace(/[、。]+$/, '')) // 末尾の句読点を除去
 
@@ -109,12 +131,12 @@ export async function POST(request: NextRequest) {
       
       // 使用量を記録
       if (userId) {
-        UserManager.recordUsage(userId)
+        await UserManager.recordUsage(userId)
         // デモモードでもクレジット消費（元の音声時間から計算）
         if (segments && segments.length > 0) {
           const lastSegment = segments[segments.length - 1]
           const durationMinutes = lastSegment.start / 60
-          UserManager.consumeCredits(userId, durationMinutes)
+          await UserManager.consumeCredits(userId, durationMinutes)
           console.log(`Demo mode: ${durationMinutes.toFixed(2)} minutes, ${Math.ceil(durationMinutes)} credits consumed`)
         }
       }
@@ -172,7 +194,7 @@ export async function POST(request: NextRequest) {
 要約レベル: ${summaryLevel} (${config.description})
 文字数制限: 1行最大${maxCharsPerLine}文字
 行数制限: 同時表示最大${maxLines}行
-敬語設定: ${politeStyle === 'polite' ? 'です・ます調（丁寧語）' : politeStyle === 'casual' ? 'だ・である調（常体）' : '元の調子を保持'}
+敬語設定: ${politeStyle === 'polite' ? '★必須★ です・ます調（丁寧語）で統一' : politeStyle === 'casual' ? '★必須★ だ・である調（常体）で統一' : '元の調子を保持'}
 
 以下のルールに従ってください：
 ${summaryLevel === 0 ? 
@@ -191,19 +213,22 @@ ${summaryLevel === 0 ?
 - 同時に表示するのは最大${maxLines}行まで
 - 各行の先頭にタイムスタンプを [MM:SS.S] 形式で付与
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
-${politeStyle === 'polite' ? '- 「です・ます」調の丁寧語で統一する' : politeStyle === 'casual' ? '- 「だ・である」調の常体で統一する' : '- 元の話し方の敬語レベルを保持する'}
+${politeStyle === 'polite' ? '- 必ず「です・ます」調の丁寧語で統一する（例：「動画編集は大変です」「テロップ作成に時間がかかります」）\n- 常体や敬語のない表現は使用禁止' : politeStyle === 'casual' ? '- 必ず「だ・である」調の常体で統一する（例：「動画編集は大変だ」「テロップ作成に時間がかかる」）\n- 丁寧語は使用禁止' : '- 元の話し方の敬語レベルを保持する'}
 
 出力形式：
 ${summaryLevel === 0 ? '原文の内容をほぼそのまま残し、' : '重要な部分のみを選択し、'}行頭にタイムスタンプを付けて出力してください。
 各テロップブロックは最大${maxLines}行で、各行は${maxCharsPerLine}文字以内にしてください。
-例: [1:23.4] 動画編集は大変
-例: [1:28.1] テロップ作成に時間がかかる` :
+${politeStyle === 'polite' ? 
+  '例: [1:23.4] 動画編集は大変です\n例: [1:28.1] テロップ作成に時間がかかります' : 
+  politeStyle === 'casual' ? 
+  '例: [1:23.4] 動画編集は大変だ\n例: [1:28.1] テロップ作成に時間がかかる' :
+  '例: [1:23.4] 動画編集は大変\n例: [1:28.1] テロップ作成に時間がかかる'}` :
       `あなたは動画のテロップ作成の専門家です。話し言葉を読みやすいテロップ用の短文に変換してください。
 
 要約レベル: ${summaryLevel} (${config.description})
 文字数制限: 1行最大${maxCharsPerLine}文字
 行数制限: 同時表示最大${maxLines}行
-敬語設定: ${politeStyle === 'polite' ? 'です・ます調（丁寧語）' : politeStyle === 'casual' ? 'だ・である調（常体）' : '元の調子を保持'}
+敬語設定: ${politeStyle === 'polite' ? '★必須★ です・ます調（丁寧語）で統一' : politeStyle === 'casual' ? '★必須★ だ・である調（常体）で統一' : '元の調子を保持'}
 
 以下のルールに従ってください：
 ${summaryLevel === 0 ? 
@@ -221,10 +246,15 @@ ${summaryLevel === 0 ?
 - 1行は必ず${maxCharsPerLine}文字以内に収める
 - 同時に表示するのは最大${maxLines}行まで
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
-${politeStyle === 'polite' ? '- 「です・ます」調の丁寧語で統一する' : politeStyle === 'casual' ? '- 「だ・である」調の常体で統一する' : '- 元の話し方の敬語レベルを保持する'}
+${politeStyle === 'polite' ? '- 必ず「です・ます」調の丁寧語で統一する（例：「動画編集は大変です」「テロップ作成に時間がかかります」）\n- 常体や敬語のない表現は使用禁止' : politeStyle === 'casual' ? '- 必ず「だ・である」調の常体で統一する（例：「動画編集は大変だ」「テロップ作成に時間がかかる」）\n- 丁寧語は使用禁止' : '- 元の話し方の敬語レベルを保持する'}
 
 出力形式：
-各行を改行で区切って出力してください。各行は${maxCharsPerLine}文字以内にしてください。`
+各行を改行で区切って出力してください。各行は${maxCharsPerLine}文字以内にしてください。
+${politeStyle === 'polite' ? 
+  '例: 動画編集は大変です\n例: テロップ作成に時間がかかります' : 
+  politeStyle === 'casual' ? 
+  '例: 動画編集は大変だ\n例: テロップ作成に時間がかかる' :
+  '例: 動画編集は大変\n例: テロップ作成に時間がかかる'}`
 
     const userContent = segments && segments.length > 0 ? 
       `元のテキスト: ${text}
@@ -300,12 +330,12 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
     
     // 使用量を記録
     if (userId) {
-      UserManager.recordUsage(userId)
+      await UserManager.recordUsage(userId)
       // GPT-4モードでもクレジット消費（元の音声時間から計算）
       if (segments && segments.length > 0) {
         const lastSegment = segments[segments.length - 1]
         const durationMinutes = lastSegment.start / 60
-        UserManager.consumeCredits(userId, durationMinutes)
+        await UserManager.consumeCredits(userId, durationMinutes)
         console.log(`GPT-4 mode: ${durationMinutes.toFixed(2)} minutes, ${Math.ceil(durationMinutes)} credits consumed`)
       }
     }

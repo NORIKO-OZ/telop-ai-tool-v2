@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserManager, User } from '@/utils/userManager'
+import { User } from '@/utils/userManagerRedis'
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<User[]>([])
@@ -30,22 +30,25 @@ export default function AdminPanel() {
     name: '',
     role: 'user' as 'admin' | 'user',
     monthlyCredits: 300,
-    maxFileSize: 50
+    maxDurationMinutes: 30
   })
 
   useEffect(() => {
     loadUsers()
   }, [])
 
-  const loadUsers = () => {
+  const loadUsers = async () => {
     setIsLoading(true)
     try {
-      const allUsers = UserManager.getAllUsers()
-      setUsers(allUsers)
+      const response = await fetch('/api/admin/users')
+      const data = await response.json()
       
-      // 全体統計も取得
-      const stats = UserManager.getOverallUsageStats()
-      setOverallStats(stats)
+      if (data.success) {
+        setUsers(data.users)
+        setOverallStats(data.stats)
+      } else {
+        setError('ユーザー情報の読み込みに失敗しました')
+      }
     } catch {
       setError('ユーザー情報の読み込みに失敗しました')
     } finally {
@@ -53,124 +56,122 @@ export default function AdminPanel() {
     }
   }
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     if (!newUser.id || !newUser.password || !newUser.name) {
       setError('必須項目をすべて入力してください')
       return
     }
 
-    const success = UserManager.createUser({
-      id: newUser.id,
-      password: newUser.password,
-      name: newUser.name,
-      role: newUser.role,
-      limits: {
-        dailyRequests: 999, // 大きな値で実質無制限
-        monthlyRequests: 999, // 大きな値で実質無制限
-        monthlyCredits: newUser.monthlyCredits,
-        maxFileSize: newUser.maxFileSize
-      },
-      active: true
-    })
-
-    if (success) {
-      setSuccess('ユーザーを作成しました')
-      setNewUser({
-        id: '',
-        password: '',
-        name: '',
-        role: 'user',
-        monthlyCredits: 300,
-        maxFileSize: 50
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          user: {
+            id: newUser.id,
+            password: newUser.password,
+            name: newUser.name,
+            role: newUser.role,
+            limits: {
+              dailyRequests: 999,
+              monthlyRequests: 999,
+              monthlyCredits: newUser.monthlyCredits,
+              maxFileSize: 999999, // ファイルサイズ制限なし
+              maxDurationMinutes: newUser.maxDurationMinutes
+            },
+            active: true
+          }
+        })
       })
-      loadUsers()
-    } else {
-      setError('ユーザー作成に失敗しました（IDが重複している可能性があります）')
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setSuccess('ユーザーを作成しました')
+        setNewUser({
+          id: '',
+          password: '',
+          name: '',
+          role: 'user',
+          monthlyCredits: 300,
+          maxDurationMinutes: 30
+        })
+        loadUsers()
+      } else {
+        setError('ユーザー作成に失敗しました（IDが重複している可能性があります）')
+      }
+    } catch {
+      setError('ユーザー作成に失敗しました')
     }
   }
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     if (window.confirm(`ユーザー「${userId}」を削除してもよろしいですか？`)) {
-      const success = UserManager.deleteUser(userId)
-      if (success) {
-        setSuccess('ユーザーを削除しました')
-        loadUsers()
-      } else {
+      try {
+        const response = await fetch('/api/admin/users', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        })
+
+        const data = await response.json()
+        
+        if (data.success) {
+          setSuccess('ユーザーを削除しました')
+          loadUsers()
+        } else {
+          setError('ユーザー削除に失敗しました')
+        }
+      } catch {
         setError('ユーザー削除に失敗しました')
       }
     }
   }
 
-  const handleToggleActive = (userId: string) => {
-    const success = UserManager.toggleActive(userId)
-    if (success) {
-      setSuccess('ユーザーのステータスを更新しました')
-      loadUsers()
-    } else {
+  const handleToggleActive = async (userId: string) => {
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggleActive', userId })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setSuccess('ユーザーのステータスを更新しました')
+        loadUsers()
+      } else {
+        setError('ステータス更新に失敗しました')
+      }
+    } catch {
       setError('ステータス更新に失敗しました')
     }
   }
 
-  const handleUpdateUserInfo = () => {
+  const handleUpdateUserInfo = async () => {
     if (!selectedUser) return
 
-    // 元のIDを保存
-    const originalUser = users.find(u => u.id === selectedUser.id)
-    if (!originalUser) return
-
-    const originalId = originalUser.id
-    let updateSuccess = true
-    const errors: string[] = []
-
     try {
-      // パスワード変更
-      if (selectedUser.password && selectedUser.password !== originalUser.password) {
-        if (selectedUser.password.length < 6) {
-          errors.push('パスワードは6文字以上で入力してください')
-          updateSuccess = false
-        } else {
-          const passwordSuccess = UserManager.changePassword(originalId, selectedUser.password)
-          if (!passwordSuccess) {
-            errors.push('パスワードの変更に失敗しました')
-            updateSuccess = false
-          }
-        }
-      }
+      const response = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'update', 
+          userId: selectedUser.id,
+          updates: selectedUser
+        })
+      })
 
-      // 名前変更
-      if (selectedUser.name !== originalUser.name) {
-        const nameSuccess = UserManager.changeName(originalId, selectedUser.name)
-        if (!nameSuccess) {
-          errors.push('名前の変更に失敗しました')
-          updateSuccess = false
-        }
-      }
-
-      // ID変更（管理者以外）
-      if (selectedUser.id !== originalId && originalId !== 'admin') {
-        const idSuccess = UserManager.changeUserId(originalId, selectedUser.id)
-        if (!idSuccess) {
-          errors.push('IDの変更に失敗しました（重複している可能性があります）')
-          updateSuccess = false
-        }
-      }
-
-      // 制限変更
-      const currentUser = UserManager.getUser(selectedUser.id)
-      if (currentUser) {
-        const limitsSuccess = UserManager.updateLimits(selectedUser.id, selectedUser.limits)
-        if (!limitsSuccess) {
-          errors.push('制限の更新に失敗しました')
-          updateSuccess = false
-        }
-      }
-
-      if (updateSuccess) {
+      const data = await response.json()
+      
+      if (data.success) {
         setSuccess('ユーザー情報を更新しました')
         setSelectedUser(null)
         loadUsers()
       } else {
-        setError(errors.join('、'))
+        setError(data.error || 'ユーザー情報の更新に失敗しました')
       }
     } catch {
       setError('ユーザー情報の更新中にエラーが発生しました')
@@ -267,66 +268,6 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* コスト詳細パネル */}
-      {overallStats && (
-        <div className="mb-8 bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">コスト詳細分析</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-medium mb-3 text-gray-300">API別コスト内訳</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-2 px-3 bg-gray-700 rounded">
-                  <span>Whisper API (音声認識)</span>
-                  <span className="font-mono">${overallStats.costBreakdown.whisperCost.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 px-3 bg-gray-700 rounded">
-                  <span>GPT-4 API (テキスト生成)</span>
-                  <span className="font-mono">${overallStats.costBreakdown.gptCost.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 px-3 bg-blue-600 rounded font-semibold">
-                  <span>合計</span>
-                  <span className="font-mono">${overallStats.costBreakdown.totalCost.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-lg font-medium mb-3 text-gray-300">コスト予測</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-2 px-3 bg-gray-700 rounded">
-                  <span>今日の予測 (24時間)</span>
-                  <span className="font-mono">${(overallStats.totalDailyRequests * 0.078).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 px-3 bg-gray-700 rounded">
-                  <span>今月の予測 (30日)</span>
-                  <span className="font-mono">${(overallStats.totalMonthlyRequests * 0.078).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 px-3 bg-green-600 rounded font-semibold">
-                  <span>月間予算目安</span>
-                  <span className="font-mono">${((overallStats.totalMonthlyRequests * 0.078) * 1.2).toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-6 p-4 bg-yellow-900 bg-opacity-50 rounded-lg border border-yellow-600">
-            <h4 className="text-yellow-300 font-medium mb-2">💡 コスト計算について</h4>
-            <ul className="text-sm text-yellow-200 space-y-1">
-              <li>• Whisper API: $0.006/分 × 平均3分 = $0.018/リクエスト</li>
-              <li>• GPT-4 API: $0.03/1K入力トークン + $0.06/1K出力トークン ≈ $0.06/リクエスト</li>
-              <li>• 合計: 約$0.078/リクエスト (実際の使用量により変動)</li>
-            </ul>
-          </div>
-          <div className="mt-4 p-4 bg-blue-900 bg-opacity-50 rounded-lg border border-blue-600">
-            <h4 className="text-blue-300 font-medium mb-2">💳 クレジットシステムについて</h4>
-            <ul className="text-sm text-blue-200 space-y-1">
-              <li>• 1分の音声処理 = 1クレジット</li>
-              <li>• 動画→音声変換は無料（クライアント側処理）</li>
-              <li>• ユーザーは月間クレジット制限内で自由に利用可能</li>
-              <li>• 短い動画を多数処理する場合に特に有効</li>
-            </ul>
-          </div>
-        </div>
-      )}
-
       {/* ユーザー作成フォーム */}
       <div className="mb-8 p-4 bg-gray-800 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">新規ユーザー作成</h2>
@@ -383,14 +324,17 @@ export default function AdminPanel() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">最大ファイルサイズ (MB)</label>
+            <label className="block text-sm font-medium mb-2">最大ファイル時間 (分)</label>
             <input
               type="number"
-              value={newUser.maxFileSize}
-              onChange={(e) => setNewUser({ ...newUser, maxFileSize: parseInt(e.target.value) || 0 })}
+              value={newUser.maxDurationMinutes}
+              onChange={(e) => setNewUser({ ...newUser, maxDurationMinutes: parseInt(e.target.value) || 0 })}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
               min="0"
+              max="30"
+              placeholder="最大30分"
             />
+            <p className="text-xs text-gray-400 mt-1">現在の仕様では最大30分に統一されています</p>
           </div>
         </div>
         <button
@@ -440,7 +384,7 @@ export default function AdminPanel() {
                     {user.usage.monthlyCreditsUsed}/{user.limits.monthlyCredits}
                   </td>
                   <td className="p-2 text-xs">
-                    クレ:{user.limits.monthlyCredits} サイズ:{user.limits.maxFileSize}MB
+                    クレ:{user.limits.monthlyCredits} 時間制限:{user.limits.maxDurationMinutes}分
                   </td>
                   <td className="p-2">
                     <div className="flex gap-2">
@@ -517,7 +461,7 @@ export default function AdminPanel() {
                 <label className="block text-sm font-medium mb-2">パスワード</label>
                 <input
                   type="password"
-                  value={selectedUser.password}
+                  value={selectedUser.password || ''}
                   onChange={(e) => setSelectedUser({
                     ...selectedUser,
                     password: e.target.value
@@ -544,22 +488,25 @@ export default function AdminPanel() {
                     placeholder="例: 300 (5時間分)"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">最大ファイルサイズ (MB)</label>
-                  <input
-                    type="number"
-                    value={selectedUser.limits.maxFileSize}
-                    onChange={(e) => setSelectedUser({
-                      ...selectedUser,
-                      limits: {
-                        ...selectedUser.limits,
-                        maxFileSize: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
-                    min="0"
-                  />
-                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">最大ファイル時間 (分)</label>
+                <input
+                  type="number"
+                  value={selectedUser.limits.maxDurationMinutes}
+                  onChange={(e) => setSelectedUser({
+                    ...selectedUser,
+                    limits: {
+                      ...selectedUser.limits,
+                      maxDurationMinutes: parseInt(e.target.value) || 0
+                    }
+                  })}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded-md"
+                  min="0"
+                  max="30"
+                  placeholder="最大30分"
+                />
+                <p className="text-xs text-gray-400 mt-1">現在の仕様では最大30分に統一されています</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
