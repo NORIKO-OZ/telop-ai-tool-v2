@@ -1,4 +1,5 @@
 {
+  "name": "telop-ai-tool-v3",
   "functions": {
     "src/app/api/transcribe/route.ts": {
       "maxDuration": 300
