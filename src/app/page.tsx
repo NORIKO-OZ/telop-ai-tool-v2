@@ -262,7 +262,7 @@ function MainApp({ currentUserId }: MainAppProps) {
   }
 
   // チャンクアップロード関数
-  const handleChunkUpload = async (file: File): Promise<{transcription: string, segments?: Segment[], language?: string, duration?: number, method: string}> => {
+  const handleChunkUpload = async (file: File): Promise<{transcription?: string, segments?: Segment[], language?: string, duration?: number, method?: string, error?: string, details?: string}> => {
     const CHUNK_SIZE = 1024 * 1024 // 1MB chunks
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -331,7 +331,7 @@ function MainApp({ currentUserId }: MainAppProps) {
       const fileSizeMB = audioFile.size / (1024 * 1024)
       console.log(`Transcription file size: ${fileSizeMB.toFixed(2)}MB`)
       
-      let data: {transcription: string, segments?: Segment[], language?: string, duration?: number, method?: string} | null = null
+      let data: {transcription?: string, segments?: Segment[], language?: string, duration?: number, method?: string, error?: string, details?: string} | null = null
       
       // APIの試行順序: 標準API → チャンクアップロード
       let uploadSucceeded = false
@@ -400,7 +400,7 @@ function MainApp({ currentUserId }: MainAppProps) {
       
       console.log('Transcription response data:', data)
       
-      if (data.transcription) {
+      if (data && data.transcription) {
         setTranscription(data.transcription)
         setProgressPercent(80)
         if (data.segments) {
@@ -410,7 +410,7 @@ function MainApp({ currentUserId }: MainAppProps) {
         } else {
           await handleRewrite(data.transcription)
         }
-      } else if (data.error) {
+      } else if (data && data.error) {
         console.error('Server error details:', data.details)
         throw new Error(`${data.error}${data.details ? ': ' + data.details : ''}`)
       } else {
