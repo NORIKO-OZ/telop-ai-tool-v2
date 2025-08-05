@@ -132,23 +132,35 @@ function MainApp({ currentUserId }: MainAppProps) {
     if (file) {
       console.log('File uploaded:', file.name, file.type, file.size)
       
-      // ファイルサイズチェック（OpenAI Whisper API 25MB制限）
-      const fileSizeMB = file.size / (1024 * 1024)
-      console.log(`File size check: ${fileSizeMB.toFixed(2)}MB`)
+      // ファイルタイプの判定を先に実行
+      const isVideoFile = file.type.startsWith('video/') || 
+                         file.name.toLowerCase().endsWith('.mp4') ||
+                         file.name.toLowerCase().endsWith('.mov') ||
+                         file.name.toLowerCase().endsWith('.avi') ||
+                         file.name.toLowerCase().endsWith('.mkv') ||
+                         file.name.toLowerCase().endsWith('.webm')
       
-      if (fileSizeMB > 25) {
-        alert(`ファイルサイズが大きすぎます\n\n現在のファイル: ${fileSizeMB.toFixed(1)}MB\n制限サイズ: 25MB\n\nより小さなファイルをアップロードしてください。`)
-        event.target.value = ''
-        return
-      }
-      
-      // 大きなファイル（5MB以上）への警告
-      if (fileSizeMB > 5) {
-        const proceed = confirm(`大きなファイルです (${fileSizeMB.toFixed(1)}MB)\n\nアップロードに時間がかかる可能性があります。\n続行しますか？`)
-        if (!proceed) {
+      // 音声ファイルのみサイズチェック（動画は変換後にチェック）
+      if (!isVideoFile) {
+        const fileSizeMB = file.size / (1024 * 1024)
+        console.log(`Audio file size check: ${fileSizeMB.toFixed(2)}MB`)
+        
+        if (fileSizeMB > 25) {
+          alert(`ファイルサイズが大きすぎます\n\n現在のファイル: ${fileSizeMB.toFixed(1)}MB\n制限サイズ: 25MB\n\nより小さなファイルをアップロードしてください。`)
           event.target.value = ''
           return
         }
+        
+        // 大きなファイル（5MB以上）への警告
+        if (fileSizeMB > 5) {
+          const proceed = confirm(`大きなファイルです (${fileSizeMB.toFixed(1)}MB)\n\nアップロードに時間がかかる可能性があります。\n続行しますか？`)
+          if (!proceed) {
+            event.target.value = ''
+            return
+          }
+        }
+      } else {
+        console.log('Video file detected, skipping size check (will check after conversion)')
       }
       
       try {
@@ -201,14 +213,6 @@ function MainApp({ currentUserId }: MainAppProps) {
         event.target.value = ''
         return
       }
-      
-      // ファイルタイプの判定を拡張
-      const isVideoFile = file.type.startsWith('video/') || 
-                         file.name.toLowerCase().endsWith('.mp4') ||
-                         file.name.toLowerCase().endsWith('.mov') ||
-                         file.name.toLowerCase().endsWith('.avi') ||
-                         file.name.toLowerCase().endsWith('.mkv') ||
-                         file.name.toLowerCase().endsWith('.webm')
       
       if (isVideoFile) {
         console.log('Video file detected, starting conversion...')
