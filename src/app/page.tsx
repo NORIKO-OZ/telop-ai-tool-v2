@@ -168,7 +168,7 @@ function MainApp({ currentUserId }: MainAppProps) {
         const durationSeconds = await getFileDuration(file)
         const durationMinutes = durationSeconds / 60
         
-        console.log(`File duration: ${durationMinutes.toFixed(2)} minutes, File size: ${fileSizeMB.toFixed(1)}MB`)
+        console.log(`File duration: ${durationMinutes.toFixed(2)} minutes, File size: ${(file.size / (1024 * 1024)).toFixed(1)}MB`)
         
         // 時間制限チェック（30分制限）
         if (durationMinutes > 30) {
