@@ -22,6 +22,7 @@ interface MainAppProps {
 
 function MainApp({ currentUserId }: MainAppProps) {
   const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [originalFile, setOriginalFile] = useState<File | null>(null)
   const [transcription, setTranscription] = useState<string>('')
   const [segments, setSegments] = useState<Segment[]>([])
   const [rewrittenText, setRewrittenText] = useState<string>('')
@@ -134,6 +135,7 @@ function MainApp({ currentUserId }: MainAppProps) {
     }
     
     if (file) {
+      setOriginalFile(file) // 元のファイル情報を保存
       console.log('File uploaded:', file.name, file.type, file.size)
       
       // ファイルタイプの判定を先に実行
@@ -231,6 +233,8 @@ function MainApp({ currentUserId }: MainAppProps) {
           const convertedAudio = await videoConverter.convertMP4ToMP3(file, controller.signal)
           if (!controller.signal.aborted) {
             setAudioFile(convertedAudio)
+            setStep('upload') // アップロード完了状態に戻す
+            setProcessingStatus('idle')
             console.log('Video conversion successful')
           }
         } catch (error) {
@@ -244,6 +248,8 @@ function MainApp({ currentUserId }: MainAppProps) {
               const extractedAudio = await videoConverter.extractAudioSimple(file, controller.signal)
               if (!controller.signal.aborted) {
                 setAudioFile(extractedAudio)
+                setStep('upload') // フォールバック成功時もアップロード完了状態に
+                setProcessingStatus('idle')
                 console.log('Fallback audio extraction successful')
               }
             } catch (fallbackError) {
@@ -256,7 +262,10 @@ function MainApp({ currentUserId }: MainAppProps) {
         } finally {
           setIsConverting(false)
           setAbortController(null)
-          setStep('upload')
+          // stepは成功時に既に設定されているので、失敗時のみuploadに戻す
+          if (!audioFile) {
+            setStep('upload')
+          }
           if (processingStatus === 'converting') {
             setProcessingStatus('idle')
             setProgressPercent(0)
@@ -519,6 +528,7 @@ function MainApp({ currentUserId }: MainAppProps) {
       handleAbort()
     }
     setAudioFile(null)
+    setOriginalFile(null)
     setTranscription('')
     setSegments([])
     setRewrittenText('')
@@ -830,8 +840,13 @@ function MainApp({ currentUserId }: MainAppProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <span className="text-sm text-gray-600">{audioFile.name}</span>
+                  <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-gray-600">{audioFile.name}</span>
+                      {originalFile && originalFile.type.startsWith('video/') && (
+                        <span className="text-xs text-green-600 mt-1">✅ 動画から音声抽出済み</span>
+                      )}
+                    </div>
                     <button
                       onClick={handleReset}
                       className="text-red-500 hover:text-red-700"
@@ -977,9 +992,15 @@ function MainApp({ currentUserId }: MainAppProps) {
                   <button
                     onClick={handleTranscribe}
                     disabled={isLoading || isConverting}
-                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className={`w-full py-3 px-4 rounded-lg ${
+                      isLoading || isConverting
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
                   >
-                    {getStatusMessage() || '文字起こし開始'}
+                    {getStatusMessage() || (audioFile && originalFile && originalFile.type.startsWith('video/') 
+                      ? '✅ 動画変換完了 - 文字起こしを開始'
+                      : '文字起こし開始')}
                   </button>
                 </div>
               )}
