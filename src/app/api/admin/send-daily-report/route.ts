@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { User } from '@/utils/userManagerRedis'
 import * as nodemailer from 'nodemailer'
 import fs from 'fs'
 import path from 'path'
@@ -19,7 +20,7 @@ const getAdminStats = async () => {
 }
 
 // 日次レポートメール送信
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // メール設定を読み込み
     const settingsFile = path.join(process.cwd(), 'settings', 'email-settings.json')
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     // ユーザー活動状況
     if (settings.includeUserActivity) {
-      const activeUsersToday = users.filter(u => u.usage.dailyRequestsUsed > 0)
+      const activeUsersToday = users.filter((u: User) => u.usage.dailyRequests > 0)
       reportContent += `
         <div class="section">
           <h2>👥 ユーザー別活動状況</h2>
@@ -110,11 +111,11 @@ export async function POST(request: NextRequest) {
                 </tr>
               </thead>
               <tbody>
-                ${activeUsersToday.map(user => `
+                ${activeUsersToday.map((user: User) => `
                   <tr>
                     <td><strong>${user.name}</strong> (${user.id})</td>
-                    <td>${user.usage.dailyRequestsUsed} requests</td>
-                    <td>${user.usage.monthlyRequestsUsed} requests</td>
+                    <td>${user.usage.dailyRequests} requests</td>
+                    <td>${user.usage.monthlyRequests} requests</td>
                     <td>${user.usage.monthlyCreditsUsed}/${user.limits.monthlyCredits}</td>
                   </tr>
                 `).join('')}

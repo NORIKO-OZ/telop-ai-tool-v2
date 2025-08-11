@@ -3,14 +3,16 @@ import fs from 'fs'
 import path from 'path'
 
 interface FeedbackData {
+  id?: string
   type: 'feedback' | 'bug' | 'feature'
   email?: string
   subject?: string
   message: string
-  rating?: number
+  rating?: number | null
   timestamp: string
   userAgent?: string
   url?: string
+  processed?: boolean
 }
 
 export async function POST(request: NextRequest) {
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 既存のフィードバックデータを読み込み
-    let feedbackList: any[] = []
+    let feedbackList: FeedbackData[] = []
     if (fs.existsSync(feedbackFile)) {
       try {
         const existingData = fs.readFileSync(feedbackFile, 'utf-8')
@@ -155,7 +157,7 @@ export async function GET(request: NextRequest) {
         const feedbackList = JSON.parse(feedbackData)
         
         // 最新順にソート
-        feedbackList.sort((a: any, b: any) => 
+        feedbackList.sort((a: FeedbackData, b: FeedbackData) => 
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         )
         

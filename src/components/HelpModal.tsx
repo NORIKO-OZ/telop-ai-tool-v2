@@ -175,7 +175,7 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                     <ol className="text-sm text-gray-700 space-y-2">
                       <li>1. 「用語辞書」ボタンをクリック</li>
                       <li>2. 新規辞書を作成または既存辞書を選択</li>
-                      <li>3. 置換ルールを追加（例: "AI" → "人工知能"）</li>
+                      <li>3. 置換ルールを追加（例: &quot;AI&quot; → &quot;人工知能&quot;）</li>
                       <li>4. 辞書を有効化</li>
                       <li>5. テロップ生成時に自動適用</li>
                     </ol>

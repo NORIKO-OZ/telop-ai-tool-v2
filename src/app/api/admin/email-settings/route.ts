@@ -57,7 +57,7 @@ const saveEmailSettings = (settings: EmailSettings): void => {
 }
 
 // GET: 設定取得
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const settings = loadEmailSettings()
     return NextResponse.json({ 
