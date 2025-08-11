@@ -1,9 +1,8 @@
 {
-  "name": "telop-ai-tool-v4",
   "crons": [
     {
       "path": "/api/cron/daily-email",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     }
   ],
   "functions": {
