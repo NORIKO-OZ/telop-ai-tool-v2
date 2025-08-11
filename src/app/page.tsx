@@ -7,6 +7,8 @@ import DictionaryManager from '@/components/DictionaryManager'
 import BulkReplacePanel from '@/components/BulkReplacePanel'
 import AccessControl from '@/components/AccessControl'
 import AdminPanel from '@/components/AdminPanel'
+import HelpModal from '@/components/HelpModal'
+import FeedbackModal from '@/components/FeedbackModal'
 
 interface Segment {
   start: number
@@ -42,6 +44,8 @@ function MainApp({ currentUserId }: MainAppProps) {
   const [processingStatus, setProcessingStatus] = useState<'idle' | 'converting' | 'transcribing' | 'generating' | 'completed'>('idle')
   const [progressPercent, setProgressPercent] = useState(0)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [showHelpModal, setShowHelpModal] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   const getStatusMessage = () => {
     switch (processingStatus) {
@@ -683,7 +687,26 @@ function MainApp({ currentUserId }: MainAppProps) {
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <div className="flex justify-between items-center mb-4">
-            <div></div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowHelpModal(true)}
+                className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-5 py-2.5 rounded-lg hover:from-indigo-600 hover:to-indigo-700 flex items-center space-x-2 min-w-[120px] justify-center shadow-md transition-all duration-200 hover:shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">使い方</span>
+              </button>
+              <button
+                onClick={() => setShowFeedbackModal(true)}
+                className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-5 py-2.5 rounded-lg hover:from-emerald-600 hover:to-emerald-700 flex items-center space-x-2 min-w-[120px] justify-center shadow-md transition-all duration-200 hover:shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                <span className="font-medium">フィードバック</span>
+              </button>
+            </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 AI テロップ作成ツール v2
@@ -692,26 +715,26 @@ function MainApp({ currentUserId }: MainAppProps) {
                 音声を文字起こしして、テロップ用の短文に自動変換します
               </p>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex space-x-3">
               <button
                 onClick={() => setShowDictionaryManager(true)}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+                className="bg-gradient-to-r from-violet-500 to-violet-600 text-white px-5 py-2.5 rounded-lg hover:from-violet-600 hover:to-violet-700 flex items-center space-x-2 min-w-[120px] justify-center shadow-md transition-all duration-200 hover:shadow-lg"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                <span>用語辞書</span>
+                <span className="font-medium">用語辞書</span>
             </button>
             {userId && isAdmin && (
               <button
                 onClick={() => setShowAdminPanel(true)}
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
+                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-5 py-2.5 rounded-lg hover:from-amber-600 hover:to-amber-700 flex items-center space-x-2 min-w-[120px] justify-center shadow-md transition-all duration-200 hover:shadow-lg"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>管理者パネル</span>
+                <span className="font-medium">管理者パネル</span>
               </button>
             )}
           </div>
@@ -1063,17 +1086,6 @@ function MainApp({ currentUserId }: MainAppProps) {
               />
             )}
 
-            {/* 使い方説明 */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">使い方</h2>
-              <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                <li>音声ファイル（mp3、wav、m4a等）または動画ファイル（mp4、mov、avi等）をアップロード</li>
-                <li>動画ファイルの場合は自動で音声に変換</li>
-                <li>「文字起こし開始」ボタンをクリック</li>
-                <li>自動でテロップ用の短文に変換されます</li>
-                <li>結果をコピーして動画編集ソフトで使用</li>
-              </ol>
-            </div>
           </div>
         </div>
       </div>
@@ -1085,6 +1097,18 @@ function MainApp({ currentUserId }: MainAppProps) {
         onClose={() => setShowDictionaryManager(false)}
         onDictionariesChange={handleDictionariesChange}
         userId={userId || undefined}
+      />
+
+      {/* ヘルプモーダル */}
+      <HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+      />
+
+      {/* フィードバックモーダル */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
 
       {/* 管理者パネル */}

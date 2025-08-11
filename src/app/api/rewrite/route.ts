@@ -215,7 +215,6 @@ ${summaryLevel === 0 ?
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
 ${politeStyle === 'polite' ? '- 必ず「です・ます」調の丁寧語で統一する（例：「動画編集は大変です」「テロップ作成に時間がかかります」）\n- 常体や敬語のない表現は使用禁止' : politeStyle === 'casual' ? '- 必ず「だ・である」調の常体で統一する（例：「動画編集は大変だ」「テロップ作成に時間がかかる」）\n- 丁寧語は使用禁止' : '- 元の話し方の敬語レベルを保持する'}
 
-出力形式：
 ${summaryLevel === 0 ? '原文の内容をほぼそのまま残し、' : '重要な部分のみを選択し、'}行頭にタイムスタンプを付けて出力してください。
 各テロップブロックは最大${maxLines}行で、各行は${maxCharsPerLine}文字以内にしてください。
 ${politeStyle === 'polite' ? 
@@ -248,7 +247,6 @@ ${summaryLevel === 0 ?
 - テロップの末尾の「、」「。」は除去（テロップらしく簡潔に）
 ${politeStyle === 'polite' ? '- 必ず「です・ます」調の丁寧語で統一する（例：「動画編集は大変です」「テロップ作成に時間がかかります」）\n- 常体や敬語のない表現は使用禁止' : politeStyle === 'casual' ? '- 必ず「だ・である」調の常体で統一する（例：「動画編集は大変だ」「テロップ作成に時間がかかる」）\n- 丁寧語は使用禁止' : '- 元の話し方の敬語レベルを保持する'}
 
-出力形式：
 各行を改行で区切って出力してください。各行は${maxCharsPerLine}文字以内にしてください。
 ${politeStyle === 'polite' ? 
   '例: 動画編集は大変です\n例: テロップ作成に時間がかかります' : 
@@ -260,7 +258,7 @@ ${politeStyle === 'polite' ?
       `元のテキスト: ${text}
 
 タイムスタンプ情報:
-${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [${Math.floor(seg.start / 60)}:${(seg.start % 60).toFixed(1).padStart(4, '0')}] ${seg.text}`).join('\n')}` : 
+${segments.map((seg: { start: number; text: string }) => `[${Math.floor(seg.start / 60)}:${(seg.start % 60).toFixed(1).padStart(4, '0')}] ${seg.text}`).join('\n')}` : 
       text
 
     const completion = await openai.chat.completions.create({
@@ -279,6 +277,11 @@ ${segments.map((seg: { start: number; text: string }, i: number) => `${i + 1}. [
     })
 
     let rewrittenText = completion.choices[0]?.message?.content || text
+    
+    // GPTの応答から不要なプレフィックスを除去
+    rewrittenText = rewrittenText
+      .replace(/^出力[：:]\s*/m, '') // 「出力:」を除去
+      .replace(/^\d+\.\s*\[/gm, '[') // 「1. [0:01.2]」を「[0:01.2]」に変更
     
     console.log('GPT-4 API response:', rewrittenText.substring(0, 100) + '...')
     

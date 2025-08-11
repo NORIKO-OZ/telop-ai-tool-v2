@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { User } from '@/utils/userManagerRedis'
+import AdminManualModal from './AdminManualModal'
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<User[]>([])
@@ -23,6 +24,19 @@ export default function AdminPanel() {
     }
   } | null>(null)
 
+  // メール通知設定用の状態
+  const [emailSettings, setEmailSettings] = useState({
+    enabled: false,
+    emailAddresses: [] as string[],
+    sendTime: '09:00',
+    includeStats: true,
+    includeUserActivity: true,
+    includeCostBreakdown: true
+  })
+  const [isEmailSettingsOpen, setIsEmailSettingsOpen] = useState(false)
+  const [newEmailAddress, setNewEmailAddress] = useState('')
+  const [isManualOpen, setIsManualOpen] = useState(false)
+
   // 新規ユーザー作成フォーム
   const [newUser, setNewUser] = useState({
     id: '',
@@ -35,6 +49,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     loadUsers()
+    loadEmailSettings()
   }, [])
 
   const loadUsers = async () => {
@@ -178,6 +193,112 @@ export default function AdminPanel() {
     }
   }
 
+  const loadEmailSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/email-settings')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.settings) {
+          setEmailSettings(data.settings)
+        }
+      }
+    } catch (error) {
+      console.warn('メール設定の読み込みに失敗しました:', error)
+    }
+  }
+
+  const addEmailAddress = () => {
+    const email = newEmailAddress.trim()
+    if (!email) {
+      setError('メールアドレスを入力してください')
+      return
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError('有効なメールアドレス形式で入力してください')
+      return
+    }
+    
+    if (emailSettings.emailAddresses.includes(email)) {
+      setError('このメールアドレスは既に追加されています')
+      return
+    }
+    
+    setEmailSettings({
+      ...emailSettings,
+      emailAddresses: [...emailSettings.emailAddresses, email]
+    })
+    setNewEmailAddress('')
+    clearMessages()
+  }
+
+  const removeEmailAddress = (emailToRemove: string) => {
+    setEmailSettings({
+      ...emailSettings,
+      emailAddresses: emailSettings.emailAddresses.filter(email => email !== emailToRemove)
+    })
+  }
+
+  const saveEmailSettings = async () => {
+    if (emailSettings.enabled && emailSettings.emailAddresses.length === 0) {
+      setError('メールアドレスを少なくとも1つ追加してください')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/email-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailSettings)
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setSuccess('メール通知設定を保存しました')
+        setIsEmailSettingsOpen(false)
+      } else {
+        setError(data.error || 'メール設定の保存に失敗しました')
+      }
+    } catch {
+      setError('メール設定の保存中にエラーが発生しました')
+    }
+  }
+
+  const sendTestEmail = async () => {
+    if (emailSettings.emailAddresses.length === 0) {
+      setError('テスト送信するメールアドレスを追加してください')
+      return
+    }
+
+    try {
+      // 複数アドレスに順次送信
+      const results = []
+      for (const emailAddress of emailSettings.emailAddresses) {
+        const response = await fetch('/api/admin/send-test-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailAddress })
+        })
+        
+        const data = await response.json()
+        results.push({ email: emailAddress, success: data.success, error: data.error })
+      }
+      
+      const successCount = results.filter(r => r.success).length
+      const failureCount = results.filter(r => !r.success).length
+      
+      if (failureCount === 0) {
+        setSuccess(`${successCount}件のテストメールを送信しました`)
+      } else {
+        setError(`${successCount}件成功、${failureCount}件失敗しました`)
+      }
+    } catch {
+      setError('テストメール送信中にエラーが発生しました')
+    }
+  }
+
   const clearMessages = () => {
     setError('')
     setSuccess('')
@@ -267,6 +388,34 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
+
+      {/* 管理ツールボタン */}
+      <div className="mb-6 flex gap-4">
+        <button
+          onClick={() => setIsEmailSettingsOpen(true)}
+          className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white px-6 py-3 rounded-lg hover:from-cyan-600 hover:to-cyan-700 flex items-center space-x-2 shadow-md transition-all duration-200 hover:shadow-lg"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span className="font-medium">メール通知設定</span>
+          {emailSettings.enabled && (
+            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+              ON ({emailSettings.emailAddresses.length})
+            </span>
+          )}
+        </button>
+        
+        <button
+          onClick={() => setIsManualOpen(true)}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-6 py-3 rounded-lg hover:from-yellow-600 hover:to-yellow-700 flex items-center space-x-2 shadow-md transition-all duration-200 hover:shadow-lg"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className="font-medium">管理者マニュアル</span>
+        </button>
+      </div>
 
       {/* ユーザー作成フォーム */}
       <div className="mb-8 p-4 bg-gray-800 rounded-lg">
@@ -526,6 +675,215 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
+
+      {/* メール通知設定モーダル */}
+      {isEmailSettingsOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold">メール通知設定</h3>
+              <button
+                onClick={() => setIsEmailSettingsOpen(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* 通知有効化 */}
+              <div>
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={emailSettings.enabled}
+                    onChange={(e) => setEmailSettings({
+                      ...emailSettings,
+                      enabled: e.target.checked
+                    })}
+                    className="w-5 h-5 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+                  />
+                  <span className="text-lg font-medium">日次メール通知を有効にする</span>
+                </label>
+                <p className="text-sm text-gray-400 mt-1">毎日指定時刻に使用状況レポートをメール送信します</p>
+              </div>
+
+              {/* メールアドレス */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  通知先メールアドレス <span className="text-red-500">*</span>
+                </label>
+                
+                {/* 既存のメールアドレス一覧 */}
+                {emailSettings.emailAddresses.length > 0 && (
+                  <div className="mb-3 space-y-2">
+                    {emailSettings.emailAddresses.map((email, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-700 border border-gray-600 rounded-md px-3 py-2">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-white">{email}</span>
+                        </div>
+                        <button
+                          onClick={() => removeEmailAddress(email)}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-1 rounded"
+                          title="削除"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* 新しいメールアドレス追加 */}
+                <div className="flex space-x-2">
+                  <input
+                    type="email"
+                    value={newEmailAddress}
+                    onChange={(e) => setNewEmailAddress(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addEmailAddress()}
+                    className="flex-1 px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:border-cyan-500 focus:ring-cyan-500"
+                    placeholder="新しいメールアドレスを追加..."
+                  />
+                  <button
+                    onClick={addEmailAddress}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md flex items-center space-x-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>追加</span>
+                  </button>
+                </div>
+                
+                <p className="text-xs text-gray-400 mt-2">
+                  複数のメールアドレスに同じレポートが送信されます
+                </p>
+              </div>
+
+              {/* 送信時刻 */}
+              <div>
+                <label className="block text-sm font-medium mb-2">送信時刻</label>
+                <input
+                  type="time"
+                  value={emailSettings.sendTime}
+                  onChange={(e) => setEmailSettings({
+                    ...emailSettings,
+                    sendTime: e.target.value
+                  })}
+                  className={`px-3 py-2 text-white rounded-md border focus:border-cyan-500 focus:ring-cyan-500 ${
+                    emailSettings.enabled 
+                      ? 'bg-gray-700 border-gray-600' 
+                      : 'bg-gray-800 border-gray-700 opacity-75'
+                  }`}
+                />
+                <p className="text-sm text-gray-400 mt-1">日本時間での送信時刻を指定してください</p>
+              </div>
+
+              {/* レポート内容 */}
+              <div>
+                <label className="block text-sm font-medium mb-3">レポートに含める内容</label>
+                <div className="space-y-3">
+                  <label className={`flex items-center space-x-3 cursor-pointer ${!emailSettings.enabled ? 'opacity-75' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={emailSettings.includeStats}
+                      onChange={(e) => setEmailSettings({
+                        ...emailSettings,
+                        includeStats: e.target.checked
+                      })}
+                      className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+                    />
+                    <span>📊 全体統計（総ユーザー数、リクエスト数、推定コスト）</span>
+                  </label>
+                  <label className={`flex items-center space-x-3 cursor-pointer ${!emailSettings.enabled ? 'opacity-75' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={emailSettings.includeUserActivity}
+                      onChange={(e) => setEmailSettings({
+                        ...emailSettings,
+                        includeUserActivity: e.target.checked
+                      })}
+                      className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+                    />
+                    <span>👥 ユーザー別活動状況（使用クレジット、リクエスト数）</span>
+                  </label>
+                  <label className={`flex items-center space-x-3 cursor-pointer ${!emailSettings.enabled ? 'opacity-75' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={emailSettings.includeCostBreakdown}
+                      onChange={(e) => setEmailSettings({
+                        ...emailSettings,
+                        includeCostBreakdown: e.target.checked
+                      })}
+                      className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+                    />
+                    <span>💰 コスト内訳（Whisper API、GPT API別）</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* プレビュー情報 */}
+              <div className="bg-gray-700 rounded-lg p-4">
+                <h4 className="font-medium mb-2">📋 レポート例</h4>
+                <div className="text-sm text-gray-300 space-y-1">
+                  <p>🔹 件名: [AI テロップツール] 日次利用状況レポート - {new Date().toLocaleDateString('ja-JP')}</p>
+                  <p>🔹 送信先: {emailSettings.emailAddresses.length > 0 ? `${emailSettings.emailAddresses.length}件のアドレス` : '未設定'}</p>
+                  <p>🔹 総ユーザー数: {overallStats?.totalUsers || 0}名</p>
+                  <p>🔹 今日のリクエスト数: {overallStats?.totalDailyRequests || 0}件</p>
+                  <p>🔹 推定日次コスト: ${overallStats ? (overallStats.totalDailyRequests * 0.078).toFixed(2) : '0.00'}</p>
+                  <p>🔹 アクティブユーザー一覧と使用状況</p>
+                </div>
+              </div>
+
+              {/* ボタン */}
+              <div className="flex justify-between items-center pt-4 border-t border-gray-600">
+                <button
+                  onClick={sendTestEmail}
+                  disabled={emailSettings.emailAddresses.length === 0}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md text-sm flex items-center space-x-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span>テストメール送信</span>
+                  {emailSettings.emailAddresses.length > 0 && (
+                    <span className="bg-yellow-800 text-yellow-100 text-xs px-1.5 py-0.5 rounded">
+                      {emailSettings.emailAddresses.length}
+                    </span>
+                  )}
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsEmailSettingsOpen(false)}
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={saveEmailSettings}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md"
+                  >
+                    設定を保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 管理者マニュアルモーダル */}
+      <AdminManualModal
+        isOpen={isManualOpen}
+        onClose={() => setIsManualOpen(false)}
+      />
     </div>
   )
 }

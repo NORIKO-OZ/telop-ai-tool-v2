@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/nodemailer": "^6.4.17",
     "@upstash/redis": "^1.35.1",
     "@vercel/kv": "^3.0.0",
     "next": "15.3.5",
     "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.5",
     "openai": "^5.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

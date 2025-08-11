@@ -1,0 +1,25 @@
+Telop AI Tool V2 起動方法
+==========================
+
+1. コマンドプロンプト（またはPowerShell）を開く
+
+2. プロジェクトフォルダに移動
+   cd "C:\Users\nonno\telop-ai-tool-v2"
+
+3. 開発サーバーを起動
+   npm run dev
+
+   ※ポート3005が使用中の場合は以下を実行：
+   npx next dev --port 3006
+
+4. ブラウザでアクセス
+   http://localhost:3005
+   または
+   http://localhost:3006
+
+注意事項：
+- ポート競合が発生した場合は、別のポートを指定する
+- Node.jsプロセスが残っている場合は以下で停止：
+  taskkill /f /im node.exe
+
+最終更新: 2025-08-07
